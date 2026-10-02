@@ -165,7 +165,7 @@
   .logo-flip.flip img.above{transform:translateY(-160%);opacity:0}
   /* tight and line-free: no hairline above the logos or above the crew, less air on both sides */
   .clients{border-top:0;padding-top:0;margin-top:calc(clamp(40px,5vw,72px) * -1);margin-bottom:clamp(40px,5vw,72px)}
-  .team{border-top:0}
+  .team{border-top:0;scroll-margin-top:72px}   /* Contact in the header lands here, clear of the header */
   /* Turbin Studio: same build as proofing, far down after the crew; the map band's own top margin follows */
   .studio{margin:clamp(88px,11vw,144px) 0 0}
   .studio-mark{display:block;width:auto;height:clamp(104px,9.1vw,140px);margin:0 auto clamp(32px,3.4vw,52px);filter:var(--logo-img)}
@@ -314,7 +314,7 @@
 <header class="top">
   <a class="brand" href="#top" aria-label="Turbin AB, back to start"><span data-i18n="brand">Creative production agency · Stockholm</span></a>
   <nav>
-    <a href="transfer/">Transfer</a><span class="sep" aria-hidden="true">·</span><a href="#contact" data-i18n="contact">Contact</a>
+    <a href="transfer/">Transfer</a><span class="sep" aria-hidden="true">·</span><a href="#crew" data-i18n="contact">Contact</a>
   </nav>
 </header>
 
@@ -415,7 +415,7 @@
         </div>
       </div>
 
-      <section class="team sec" aria-labelledby="crew-title">
+      <section class="team sec" id="crew" aria-labelledby="crew-title">
       <h2 id="crew-title" data-i18n="crewTitle">The crew</h2>
       <div class="crew">
         <div><span data-i18n="ceo">CEO</span><strong>Kicki Särenfors</strong><a href="mailto:kicki@turbin.se">kicki@turbin.se</a></div>
@@ -1075,7 +1075,7 @@ document.addEventListener('click', e => {
   const id = a.getAttribute('href').slice(1), target = id ? document.getElementById(id) : null;
   if (!target) return;
   e.preventDefault();
-  const y = id === 'top' ? 0 : target.getBoundingClientRect().top + scrollY;
+  const y = id === 'top' ? 0 : target.getBoundingClientRect().top + scrollY - (parseFloat(getComputedStyle(target).scrollMarginTop) || 0);
   scrollTo({ top: Math.min(y, document.documentElement.scrollHeight - innerHeight), behavior: reduce ? 'auto' : 'smooth' });
   if (target.tabIndex < 0 && !/^(A|BUTTON|INPUT)$/.test(target.tagName)) target.setAttribute('tabindex', '-1');
   target.focus({ preventScroll: true });
