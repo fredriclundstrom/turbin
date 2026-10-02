@@ -172,6 +172,23 @@
   .tag.yes{border-color:var(--accent);color:var(--accent)}
   .tag.old{opacity:.5}
   .h-empty{color:var(--mute);font-size:14.5px;padding:20px 0}
+  .seg{display:inline-flex;border:1px solid var(--line);padding:3px;gap:3px;vertical-align:middle}
+  .seg button{background:none;border:0;padding:6px 10px;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);cursor:pointer}
+  .seg button:hover{color:var(--ink)}
+  .seg button[aria-pressed=true]{background:var(--ink);color:#000}
+  .in-table tr.in-row{cursor:pointer}
+  .in-table tr.in-row:hover td{background:var(--ground-mid)}
+  .in-table tr.in-row.open td{background:var(--ground-mid)}
+  .in-table .who-from{display:block}
+  .in-table .who-from small{display:block;color:var(--mute);font-size:12.5px}
+  .in-table .chev{width:28px;text-align:right;color:var(--mute);font-family:var(--mono)}
+  .in-table tr.in-row.open .chev{color:var(--accent)}
+  .in-table td.in-detail{background:var(--ground-mid);padding:4px 14px 18px}
+  .in-detail .note{margin:10px 0 14px;background:var(--ground-lo)}
+  .in-detail .list{max-height:none;overflow:visible}
+  .in-detail .list li{background:var(--ground-lo)}
+  .in-detail .dl-top{margin:12px 0 10px}
+  .in-detail .actions{display:flex;gap:10px;flex-wrap:wrap}
 
   /* ---------- download view ---------- */
   .dl-meta{display:flex;flex-wrap:wrap;gap:12px 40px;margin:28px 0 0}
@@ -343,9 +360,24 @@
       </div>
     </div>
 
+    <!-- crew inbox: what clients have sent -->
+    <section class="history" id="inbox" hidden>
+      <h2>Incoming
+        <span class="seg" role="group" aria-label="Show">
+          <button type="button" data-who="me" aria-pressed="true">To me</button>
+          <button type="button" data-who="all" aria-pressed="false">Everyone</button>
+        </span>
+      </h2>
+      <table class="h-table in-table">
+        <thead><tr><th>From</th><th class="hide-s">Received</th><th class="hide-s">Files</th><th>To</th><th></th></tr></thead>
+        <tbody id="in-rows"></tbody>
+      </table>
+      <p class="h-empty" id="in-empty" hidden>Nothing has come in yet.</p>
+    </section>
+
     <!-- crew history -->
     <section class="history" id="history" hidden>
-      <h2>History <small id="hist-who"></small></h2>
+      <h2>Sent <small id="hist-who"></small></h2>
       <table class="h-table">
         <thead><tr><th>Delivery</th><th class="hide-s">Sent</th><th class="hide-s">Size</th><th>Expires</th><th>Downloaded</th></tr></thead>
         <tbody id="hist"></tbody>
@@ -415,6 +447,14 @@ const SAMPLE = {
     ] },
   old: { title: 'Peab – annual report proofs', from: 'Thomas', by: 'thomas', sent: Date.now() - 40 * DAY, expires: Date.now() - 10 * DAY, files: [] },
 };
+
+const SAMPLE_IN = [
+  { id: 'in1', title: '2026-10-01 Anna Svensson (Agria) – Vårkampanj', from: 'Anna Svensson (Agria)', email: 'anna@agria.se', to: 'fredric', sent: Date.now() - DAY, n: 4, bytes: 1.21e9, done: true,
+    note: 'Från: Anna Svensson <anna@agria.se>, Agria\nTill: Fredric\n\nHär är bilderna till vårkampanjen!',
+    files: [['Bilder/hund_01.tif', 182.3e6], ['Bilder/hund_02.tif', 176.9e6], ['Logga_Agria.ai', 4.2e6], ['Film/Råmaterial_01.mov', 850e6]] },
+  { id: 'in2', title: '2026-09-29 Erik Lund (Peab) – Årsredovisning', from: 'Erik Lund (Peab)', email: 'erik@peab.se', to: 'thomas', sent: Date.now() - 3 * DAY, n: 2, bytes: 64e6, done: true,
+    note: 'Från: Erik Lund <erik@peab.se>, Peab\nTill: Thomas', files: [['Texter_v3.docx', 1.4e6], ['Bilder.zip', 62.6e6]] },
+];
 
 /* ---------- helpers ---------- */
 const fmt = b => { const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1000 && i < u.length - 1) { b /= 1000; i++; } return (i ? b.toFixed(b < 10 ? 1 : 0) : b) + ' ' + u[i]; };
@@ -518,7 +558,7 @@ function initSend() {
     const b = e.target.closest('button'); if (!b) return;
     me = b.dataset.id; store.set('me', me); renderWho();
     $('#who-field').classList.remove('err');
-    renderHistory();
+    renderInbox(); renderHistory();
   });
   $('#signed').addEventListener('click', async e => {
     if (!e.target.closest('#signout')) return;
@@ -545,6 +585,7 @@ function initSend() {
     gsiReady ??= loadScript('https://accounts.google.com/gsi/client').then(() => {
       google.accounts.id.initialize({ client_id: CONF.googleClientId, hd: 'turbin.se', auto_select: true, callback: onCredential });
       google.accounts.id.renderButton($('#gsi'), { theme: 'filled_black', size: 'large', shape: 'rectangular', text: 'signin_with' });
+      google.accounts.id.prompt();   // already signed in to Google at turbin.se → signs in by itself (or with one click)
     }).catch(() => { $('#signin-err').hidden = false; $('#signin-err').textContent = 'Couldn’t load Google sign-in. Check your connection and reload.'; });
   }
   async function onCredential(r) {
@@ -581,8 +622,8 @@ function initSend() {
     const locked = m === 'crew' && LIVE && !me;          // live crew mode needs a sign-in first
     $('#signin').hidden = !locked; form.hidden = locked || !$('#progress').hidden || !$('#done').hidden;
     if (locked) showSignin();
-    $('#history').hidden = m !== 'crew' || locked;
-    if (m === 'crew' && !locked) renderHistory();
+    $('#history').hidden = $('#inbox').hidden = m !== 'crew' || locked;
+    if (m === 'crew' && !locked) { renderInbox(); renderHistory(); }
     if (location.hash !== (m === 'crew' ? '#crew' : '')) history.replaceState(null, '', m === 'crew' ? '#crew' : location.pathname + location.search);
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { if (!job) setMode(b.dataset.mode); }));
@@ -896,6 +937,66 @@ function initSend() {
     document.querySelectorAll('[data-mode]').forEach(b => b.disabled = false);
     form.hidden = false; $('#progress').hidden = true; $('#done').hidden = true;
   }
+
+  /* ---------- crew inbox: incoming sends, opened right here with download buttons ---------- */
+  let inWho = store.get('inwho', 'me'), inRows = [];
+  document.querySelectorAll('[data-who]').forEach(b => {
+    b.setAttribute('aria-pressed', b.dataset.who === inWho);
+    b.addEventListener('click', () => {
+      inWho = b.dataset.who; store.set('inwho', inWho);
+      document.querySelectorAll('[data-who]').forEach(x => x.setAttribute('aria-pressed', x === b));
+      renderInbox();
+    });
+  });
+  const crewName = id => CREW.find(c => c.id === id)?.name || id || '—';
+  async function renderInbox() {
+    if (LIVE) {
+      if (!me) return;
+      try { inRows = (await api('inbox', null, inWho === 'me' ? '&who=me' : '')).incoming; }
+      catch (e) { if (e.status === 401) { me = ''; renderWho(); setMode('crew'); } return; }
+    } else {
+      inRows = SAMPLE_IN.filter(r => inWho === 'all' || r.to === me);
+    }
+    $('#in-empty').hidden = !!inRows.length;
+    $('#in-empty').textContent = inWho === 'me' ? 'Nothing has come in for you yet.' : 'Nothing has come in yet.';
+    $('#in-rows').innerHTML = inRows.map((r, i) => `<tr class="in-row" data-i="${i}" tabindex="0" aria-expanded="false">
+        <td><span class="who-from">${esc(r.from || r.title)}${r.email ? `<small>${esc(r.email)}</small>` : ''}</span></td>
+        <td class="m hide-s">${fmtDate(r.sent)}</td>
+        <td class="m hide-s">${r.n ? `${r.n} · ${fmt(r.bytes)}` : '—'}</td>
+        <td>${esc(crewName(r.to))}${r.done ? '' : ' <span class="tag">Incomplete</span>'}</td>
+        <td class="chev" aria-hidden="true">+</td></tr>`).join('');
+  }
+  async function toggleIncoming(tr) {
+    const open = tr.classList.toggle('open');
+    tr.setAttribute('aria-expanded', open); tr.querySelector('.chev').textContent = open ? '−' : '+';
+    tr.nextElementSibling?.classList.contains('in-detail-row') && tr.nextElementSibling.remove();
+    if (!open) return;
+    const r = inRows[+tr.dataset.i];
+    const row = document.createElement('tr'); row.className = 'in-detail-row';
+    row.innerHTML = `<td class="in-detail" colspan="5"><p class="sum">Loading files…</p></td>`;
+    tr.after(row);
+    let files, drive = null;
+    try {
+      if (LIVE) { const j = await api('inbox_files', null, '&f=' + encodeURIComponent(r.id)); files = j.files; drive = j.drive; }
+      else files = r.files.map(([p, s], k) => ['x' + k, p, s]);
+    } catch (e) { row.firstChild.innerHTML = `<p class="status-line bad">${esc(e.message)}</p>`; return; }
+    const href = f => `${API}?a=inbox_get&f=${encodeURIComponent(r.id)}&g=${encodeURIComponent(f[0])}`;
+    const total = files.reduce((a, f) => a + f[2], 0);
+    const note = (r.note || '').split('\n').slice(2).join('\n').trim();   // the message, without the From/To lines
+    row.firstChild.innerHTML = `${note ? `<p class="note">${esc(note)}</p>` : ''}
+      <div class="dl-top"><span class="sum"><b>${files.length}</b> files · <b>${fmt(total)}</b></span>
+        <span class="actions">${drive ? `<a class="btn ghost" href="${drive}" target="_blank" rel="noopener">Open in Drive ↗</a>` : ''}<button type="button" class="btn primary in-all">Download all</button></span></div>
+      <ul class="list">${files.map(f => `<li><span class="f-name">${splitPath(f[1])}</span><span class="f-size">${fmt(f[2])}</span>${LIVE
+        ? `<a class="btn ghost get" href="${href(f)}" download>Download</a>` : `<button type="button" class="btn ghost get">Download</button>`}</li>`).join('')}</ul>`;
+    row.querySelector('.in-all').onclick = async () => {
+      if (!LIVE) return toast('Preview — the download starts here on the live page');
+      toast(`Downloading ${files.length} files…`);
+      for (const f of files) { const a = document.createElement('a'); a.href = href(f); a.download = ''; document.body.append(a); a.click(); a.remove(); await sleep(900); }
+    };
+    if (!LIVE) row.querySelectorAll('.get').forEach(b => b.onclick = () => toast('Preview — the download starts here on the live page'));
+  }
+  $('#in-rows').addEventListener('click', e => { const tr = e.target.closest('tr.in-row'); if (tr && !e.target.closest('a,button')) toggleIncoming(tr); });
+  $('#in-rows').addEventListener('keydown', e => { const tr = e.target.closest('tr.in-row'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleIncoming(tr); } });
 
   /* ---------- crew history ---------- */
   async function renderHistory() {

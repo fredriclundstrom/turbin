@@ -3,7 +3,7 @@
   Turbin Transfer – backend. One endpoint, ?a=<action>.
 
   Clients (open):   config · start → file (per file, status after a dropped connection) → finish | cancel
-  Crew (signed in): login · logout · deliver → file → finish | cancel · history
+  Crew (signed in): login · logout · deliver → file → finish | cancel · history · inbox → inbox_files → inbox_get
   Download (open):  delivery?d=<id> · get?d=<id>&f=<file id>
 
   Files never pass through this server on the way in: `file` returns a Google Drive resumable-upload URL
@@ -33,6 +33,9 @@ match ($a) {
   'finish'   => $post ? a_finish() : fail('POST only', 405),
   'cancel'   => $post ? a_cancel() : fail('POST only', 405),
   'history'  => a_history(),
+  'inbox'    => a_inbox(),
+  'inbox_files' => a_inbox_files(),
+  'inbox_get'   => a_inbox_get(),
   'delivery' => a_delivery(),
   'get'      => a_get(),
   default    => fail('Unknown action', 404),
@@ -61,8 +64,7 @@ function a_login(): never {
   if ($r['code'] !== 200 || ($t['aud'] ?? '') !== cfg('google_client_id') || ($t['email_verified'] ?? '') !== 'true'
       || ($t['hd'] ?? '') !== cfg('workspace_domain')) fail('Sign-in failed', 401);
   $m = crew_by_email($t['email']) ?? fail('This account isn’t on the Turbin crew list', 403);
-  start_session(); session_regenerate_id(true);
-  $_SESSION['crew'] = $m['id'];
+  set_crew_cookie($m['id']);
   out(['me' => ['id' => $m['id'], 'name' => $m['name']]]);
 }
 /* ---------- …or the simple way: one shared crew password, then pick your name ---------- */
@@ -76,11 +78,10 @@ function login_password(): never {
     fail('Wrong password', 401);
   }
   if (!$m) fail('Choose who you are');
-  start_session(); session_regenerate_id(true);
-  $_SESSION['crew'] = $m['id'];
+  set_crew_cookie($m['id']);
   out(['me' => ['id' => $m['id'], 'name' => $m['name']]]);
 }
-function a_logout(): never { start_session(); $_SESSION = []; session_destroy(); out(['ok' => true]); }
+function a_logout(): never { set_crew_cookie(null); out(['ok' => true]); }
 
 /* ---------- shared: validate the file list a send starts with ---------- */
 function file_list(): array {
@@ -136,7 +137,8 @@ function a_start(): never {
   [$files, $total] = file_list();
   $folderName = clean_name(date('Y-m-d') . ' ' . $name . ($company ? " ($company)" : '') . ($project ? " – $project" : ''));
   $desc = "Från: $name <$email>" . ($company ? ", $company" : '') . "\nTill: {$to['name']}" . ($message ? "\n\n$message" : '');
-  $folder = make_folder(base_folder('in'), $folderName, ['tt' => 'in', 'to' => $to['id']], $desc);
+  $folder = make_folder(base_folder('in'), $folderName, ['tt' => 'in', 'to' => $to['id'], 'n' => (string)count($files), 'bytes' => (string)$total,
+    'from' => mb_strcut($name . ($company ? " ($company)" : ''), 0, 90, 'UTF-8'), 'email' => mb_strcut($email, 0, 90, 'UTF-8')], $desc);
   $id = new_job(['type' => 'in', 'folder' => $folder, 'title' => $folderName, 'files' => $files, 'total' => $total,
     'name' => $name, 'email' => $email, 'company' => $company, 'project' => $project, 'message' => $message, 'to' => $to['id'], 'ip' => client_ip()]);
   out(['job' => $id]);
@@ -204,6 +206,7 @@ function a_finish(): never {
   if ($job['type'] === 'in') {
     $to = crew($job['to']);
     if ($first) {
+      drive('PATCH', '/files/' . $job['folder'], [], ['appProperties' => ['done' => '1']]);   // complete — shows as such in the crew inbox
       send_mail($to['email'], "Files from {$job['name']}" . ($job['company'] ? " ({$job['company']})" : '') . " – $n files, $size",
         "{$job['name']} <{$job['email']}>" . ($job['company'] ? ", {$job['company']}" : '') . " sent you $n files ($size)"
         . ($job['project'] ? " for “{$job['project']}”" : '') . ".\n\n" . ($job['message'] ? "Message:\n{$job['message']}\n\n" : '')
@@ -257,16 +260,7 @@ function load_delivery(bool $fresh = false): array {
     $f = drive_list(q_str(base_folder('out')) . " in parents and appProperties has { key='tid' and value=" . q_str($d) . ' }',
       'id,name,description,createdTime,appProperties', 1)[0] ?? fail('Not found', 404);
     $p = $f['appProperties'];
-    // every file in the delivery, sub-folders included (Google Docs and the like can't be downloaded as files, so they're left out)
-    $files = []; $queue = [[$f['id'], '']];
-    while ($queue) {
-      [$fid, $base] = array_shift($queue);
-      foreach (drive_list(q_str($fid) . ' in parents', 'id,name,mimeType,size', 10000) as $x) {
-        if ($x['mimeType'] === FOLDER_MIME) $queue[] = [$x['id'], $base . $x['name'] . '/'];
-        elseif (!str_starts_with($x['mimeType'], 'application/vnd.google-apps.')) $files[] = ['id' => $x['id'], 'path' => $base . $x['name'], 'size' => (int)($x['size'] ?? 0)];
-      }
-    }
-    usort($files, fn($a, $b) => strnatcasecmp($a['path'], $b['path']));
+    $files = list_tree($f['id']);
     $c = ['at' => time(), 'folder' => $f['id'], 'by' => $p['by'] ?? '', 'exp' => (int)($p['exp'] ?? 0), 'dl' => $p['dl'] ?? '',
       'title' => preg_replace('/^\d{4}-\d{2}-\d{2} \S+ – /u', '', $f['name']), 'note' => $f['description'] ?? '',
       'sent' => strtotime($f['createdTime']), 'files' => $files];
@@ -282,7 +276,21 @@ function a_delivery(): never {
     'note' => $c['note'], 'files' => array_map(fn($f) => [$f['id'], $f['path'], $f['size']], $c['files'])]);
 }
 
-/* Stream one file from Drive to the client (with Range support, so a broken download can resume) */
+/* Every file in a folder, sub-folders included (Google Docs and the like can't be downloaded as files, so they're left out) */
+function list_tree(string $folder): array {
+  $files = []; $queue = [[$folder, '']];
+  while ($queue) {
+    [$fid, $base] = array_shift($queue);
+    foreach (drive_list(q_str($fid) . ' in parents', 'id,name,mimeType,size', 10000) as $x) {
+      if ($x['mimeType'] === FOLDER_MIME) $queue[] = [$x['id'], $base . $x['name'] . '/'];
+      elseif (!str_starts_with($x['mimeType'], 'application/vnd.google-apps.')) $files[] = ['id' => $x['id'], 'path' => $base . $x['name'], 'size' => (int)($x['size'] ?? 0)];
+    }
+  }
+  usort($files, fn($a, $b) => strnatcasecmp($a['path'], $b['path']));
+  return $files;
+}
+
+/* Download one file of a client delivery */
 function a_get(): never {
   [$d, $c] = load_delivery();
   $fid = (string)($_GET['f'] ?? '');
@@ -297,7 +305,12 @@ function a_get(): never {
     with_json("dl-$d.json", fn($x) => [array_merge($x, ['dl' => $stamp]), null]);
     if ($m = crew($c['by'])) send_mail($m['email'], "Downloaded: {$c['title']}", "Your client has started downloading “{$c['title']}”.\n\n" . cfg('site_url') . "#crew\n");
   }
+  stream_file($file);
+}
 
+/* Stream one file from Drive to the browser (with Range support, so a broken download can resume) */
+function stream_file(array $file): never {
+  $fid = $file['id'];
   @set_time_limit(0);
   ignore_user_abort(false);
   while (ob_get_level()) ob_end_clean();
@@ -327,4 +340,43 @@ function a_get(): never {
   ]);
   curl_exec($ch);
   exit;
+}
+
+/* ---------- crew inbox: what clients have sent, right here instead of in Drive ---------- */
+function a_inbox(): never {
+  $m = need_crew();
+  $q = q_str(base_folder('in')) . " in parents and appProperties has { key='tt' and value='in' }";
+  if (($_GET['who'] ?? '') === 'me') $q .= " and appProperties has { key='to' and value=" . q_str($m['id']) . ' }';
+  $rows = array_map(function ($f) {
+    $p = $f['appProperties'] ?? [];
+    return ['id' => $f['id'], 'title' => $f['name'], 'from' => $p['from'] ?? '', 'email' => $p['email'] ?? '', 'to' => $p['to'] ?? '',
+      'sent' => strtotime($f['createdTime']) * 1000, 'n' => (int)($p['n'] ?? 0), 'bytes' => (int)($p['bytes'] ?? 0),
+      'done' => !isset($p['n']) || !empty($p['done']), 'note' => $f['description'] ?? ''];
+  }, drive_list($q, 'id,name,createdTime,description,appProperties', 300));
+  usort($rows, fn($a, $b) => $b['sent'] <=> $a['sent']);
+  out(['incoming' => array_slice($rows, 0, 150)]);
+}
+/* one incoming send: checked to really be a folder in Inkommande, then its file list (cached for 5 minutes) */
+function load_incoming(): array {
+  need_crew();
+  $f = (string)($_GET['f'] ?? '');
+  if (!preg_match('/^[A-Za-z0-9_-]{10,80}$/', $f)) fail('Not found', 404);
+  $c = read_json("in-$f.json");
+  if (!$c || $c['at'] < time() - 300) {
+    $meta = drive('GET', '/files/' . $f, ['fields' => 'id,parents,trashed,appProperties']);
+    if (!empty($meta['trashed']) || !in_array(base_folder('in'), $meta['parents'] ?? [], true) || ($meta['appProperties']['tt'] ?? '') !== 'in') fail('Not found', 404);
+    $c = ['at' => time(), 'files' => list_tree($f)];
+    file_put_contents(data_path("in-$f.json"), json_encode($c, JSON_UNESCAPED_UNICODE), LOCK_EX);
+  }
+  return [$f, $c];
+}
+function a_inbox_files(): never {
+  [$f, $c] = load_incoming();
+  out(['drive' => 'https://drive.google.com/drive/folders/' . $f, 'files' => array_map(fn($x) => [$x['id'], $x['path'], $x['size']], $c['files'])]);
+}
+function a_inbox_get(): never {
+  [, $c] = load_incoming();
+  $g = (string)($_GET['g'] ?? '');
+  foreach ($c['files'] as $x) if ($x['id'] === $g) stream_file($x);
+  fail('Not found', 404);
 }

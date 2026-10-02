@@ -192,15 +192,22 @@ function crew_by_email(string $email): ?array {
   foreach (cfg('crew', []) as $id => [$name, $mail]) if (strcasecmp($mail, $email) === 0) return crew($id);
   return null;
 }
-function start_session(): void {
-  if (session_status() === PHP_SESSION_ACTIVE) return;
-  session_name('tt');
+/* Crew sign-in lives in a signed cookie for 30 days (PHP sessions on shared hosting are cleared after ~24 minutes).
+   The signing key is derived from the service-account key, so it never needs its own setting. */
+function crew_secret(): string { static $s = null; return $s ??= hash('sha256', 'tt-crew|' . (string)@file_get_contents(cfg('service_account_file')), true); }
+function crew_sig(string $id, int $exp): string { return b64u(hash_hmac('sha256', "$id.$exp", crew_secret(), true)); }
+function set_crew_cookie(?string $id): void {
+  $exp = $id ? time() + 30 * 86400 : time() - 3600;
   // the cookie only belongs to this app's folder (e.g. /transfer/), not to other apps on the same domain
   $path = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/') . '/';
-  session_set_cookie_params(['lifetime' => 0, 'path' => $path, 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
-  session_start();
+  setcookie('tt_crew', $id ? "$id.$exp." . crew_sig($id, $exp) : '', ['expires' => $exp, 'path' => $path,
+    'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
 }
-function me(): ?array { start_session(); return isset($_SESSION['crew']) ? crew($_SESSION['crew']) : null; }
+function me(): ?array {
+  $p = explode('.', (string)($_COOKIE['tt_crew'] ?? ''));
+  if (count($p) !== 3 || (int)$p[1] < time() || !hash_equals(crew_sig($p[0], (int)$p[1]), $p[2])) return null;
+  return crew($p[0]);
+}
 function need_crew(): array { return me() ?? fail('Please sign in', 401); }
 
 function client_ip(): string { return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0'; }
