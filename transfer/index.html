@@ -126,6 +126,7 @@
   .panel .actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:26px;flex-wrap:wrap}
   .sum{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
   .sum b{color:var(--ink);font-weight:500}
+  .sum .over{color:var(--bad);text-transform:none;letter-spacing:.02em;font-family:var(--body);font-size:13px}
   .fine{font-size:12.5px;color:var(--mute);margin:18px 0 0;line-height:1.5}
 
   /* crew: choose who you are */
@@ -250,7 +251,7 @@
       <div>
         <p class="eyebrow" id="eyebrow">File transfer</p>
         <h1 class="title" id="title">Send files<br>to Turbin</h1>
-        <p class="copy" id="lead">Drop originals, films or whole folders. No size limit. Files go straight to the right person at Turbin.</p>
+        <p class="copy" id="lead">Drop originals, films or whole folders, up to 15 GB per send. Files go straight to the right person at Turbin.</p>
       </div>
       <div class="modes" id="modes" role="group" aria-label="Who are you?" hidden>
         <button type="button" data-mode="client" aria-pressed="true">Client</button>
@@ -430,7 +431,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    (GitHub Pages, or opened as a file) it runs as a preview with simulated uploads and sample data.
 ------------------------------------------------------------------- */
 const API = 'api/index.php';
-let LIVE = false, CONF = null;
+let LIVE = false, CONF = null, MAX_BYTES = 15e9, MAX_FILES = 5000;   // limits per send (live: from the server)
 let CREW = [
   { id: 'claes', name: 'Claes' }, { id: 'fredric', name: 'Fredric' },
   { id: 'kicki', name: 'Kicki' }, { id: 'ola', name: 'Ola' }, { id: 'patrik', name: 'Patrik' },
@@ -490,7 +491,7 @@ const loadScript = src => new Promise((ok, no) => { const s = document.createEle
     const r = await fetch(API + '?a=config', { credentials: 'same-origin' });
     if (r.ok && (r.headers.get('content-type') || '').includes('json')) { CONF = await r.json(); LIVE = !!CONF.live; }
   } catch {}
-  if (LIVE) { CREW = CONF.crew; $('#demo').hidden = true; }
+  if (LIVE) { CREW = CONF.crew; $('#demo').hidden = true; MAX_BYTES = CONF.maxBytes || MAX_BYTES; MAX_FILES = CONF.maxFiles || MAX_FILES; }
   const d = new URLSearchParams(location.search).get('d');
   if (d) showDelivery(d); else initSend();
 })();
@@ -606,7 +607,7 @@ function initSend() {
 
   /* ---------- mode: client / crew ---------- */
   const COPY = {
-    client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: 'Drop originals, films or whole folders. No size limit. Files go straight to the right person at Turbin.',
+    client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: `Drop originals, films or whole folders, up to ${fmt(MAX_BYTES)} per send. Files go straight to the right person at Turbin.`,
       form: 'Your details', go: 'Send files →', fine: 'Files are delivered privately to Turbin. Nothing you send here gets a public link.' },
     crew: { eyebrow: 'Turbin crew', title: 'Deliver files<br>to a client', lead: 'Upload, get a link, send it to the client. The link stops working when it expires.',
       form: 'Delivery', go: 'Upload & get link →', fine: LIVE ? 'Only for files from Turbin to our clients.' : 'Only for files from Turbin to our clients. The live page asks for a crew login.' },
@@ -686,8 +687,10 @@ function initSend() {
     $('#files').hidden = !files.length;
     const total = files.reduce((a, f) => a + f.size, 0);
     $('#files-count').textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${fmt(total)}`;
-    $('#sum').innerHTML = `<b>${files.length}</b> file${files.length === 1 ? '' : 's'} · <b>${fmt(total)}</b>`;
-    $('#go').disabled = !files.length;
+    const over = total > MAX_BYTES || files.length > MAX_FILES;
+    $('#sum').innerHTML = `<b>${files.length}</b> file${files.length === 1 ? '' : 's'} · <b>${fmt(total)}</b>`
+      + (over ? `<br><span class="over">Max ${fmt(MAX_BYTES)} / ${MAX_FILES} files per send. Please split it up.</span>` : '');
+    $('#go').disabled = !files.length || over;
     list.innerHTML = files.map((f, i) =>
       `<li data-i="${i}"><span class="f-name" title="${esc(f.path)}">${splitPath(f.path)}</span><span class="f-size">${fmt(f.size)}</span><span class="f-state"><button type="button" class="x" aria-label="Remove ${esc(f.path)}">×</button></span><i class="bar"></i></li>`).join('');
     files.forEach((f, i) => f.el = list.children[i]);

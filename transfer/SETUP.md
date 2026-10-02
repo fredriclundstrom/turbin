@@ -38,4 +38,4 @@ När allt fungerar pekar vi om **transfer.turbin.se** dit och säger upp den gam
 - **Mejl via Gmail** i stället för via Loopia: domänomfattande delegering med behörigheten `gmail.send` i Admin console
   (`mail_via => 'gmail'`). Fram till dess skickas mejlen via Loopia. Lägg då till Loopia i SPF-posten för turbin.se
   så att mejlen inte hamnar i skräpposten.
-- **Spärrar:** högst 10 sändningar per timme och IP-adress, 500 GB och 5 000 filer per sändning. Ändras i config.php.
+- **Spärrar:** högst 10 sändningar per timme och IP-adress, 15 GB och 5 000 filer per sändning. Ändras i config.php.

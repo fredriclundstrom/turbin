@@ -50,6 +50,7 @@ function a_config(): never {
     'login' => cfg('google_client_id') ? 'google' : 'password',
     'googleClientId' => cfg('google_client_id') ?: null,
     'turnstile' => cfg('turnstile_site_key') ?: null,
+    'maxBytes' => cfg('max_send_bytes'), 'maxFiles' => cfg('max_files'),
     'me' => ($m = me()) ? ['id' => $m['id'], 'name' => $m['name']] : null,
   ]);
 }

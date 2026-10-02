@@ -50,7 +50,7 @@ return [
   'site_url' => 'https://transfer.turbin.se/',
 
   // ---- Abuse protection (the client side of the page is open) -----------------------------
-  'max_send_bytes'   => 500 * 1000 ** 3,   // 500 GB per send
+  'max_send_bytes'   => 15 * 1000 ** 3,    // 15 GB per send
   'max_files'        => 5000,              // files per send
   'sends_per_hour'   => 10,                // per IP address
   // Cloudflare Turnstile (invisible bot check). Leave empty to switch it off.
