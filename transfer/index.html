@@ -266,8 +266,13 @@
       <div>
         <div class="panel" id="signin" hidden>
           <h2>Crew sign-in</h2>
-          <p class="copy" style="margin:0 0 24px">Sign in with your Turbin Google account to deliver files and see your history.</p>
+          <p class="copy" style="margin:0 0 24px" id="signin-lead">Sign in to deliver files and see your history.</p>
           <div id="gsi"></div>
+          <form id="pwform" hidden novalidate>
+            <label class="field"><span>Who are you?</span><select name="who"><option value="">Choose…</option></select></label>
+            <label class="field"><span>Crew password</span><input name="password" type="password" autocomplete="current-password"></label>
+            <div class="actions" style="justify-content:flex-end"><button type="submit" class="btn primary">Sign in →</button></div>
+          </form>
           <p class="status-line warn" id="signin-err" hidden></p>
         </div>
 
@@ -524,8 +529,19 @@ function initSend() {
 
   /* ---------- crew sign-in with Google (live) ---------- */
   let gsiReady = null;
+  const pw = $('#pwform');
+  pw.who.insertAdjacentHTML('beforeend', CREW.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join(''));
+  pw.addEventListener('submit', async e => {
+    e.preventDefault(); $('#signin-err').hidden = true;
+    try {
+      const j = await api('login', { who: pw.who.value, password: pw.password.value });
+      pw.password.value = ''; me = j.me.id; CONF.me = j.me; renderWho(); setMode('crew');
+    } catch (err) { $('#signin-err').hidden = false; $('#signin-err').textContent = err.message; }
+  });
   function showSignin() {
     $('#signin').hidden = false;
+    if (CONF.login !== 'google') { pw.hidden = false; return; }
+    $('#signin-lead').textContent = 'Sign in with your Turbin Google account to deliver files and see your history.';
     gsiReady ??= loadScript('https://accounts.google.com/gsi/client').then(() => {
       google.accounts.id.initialize({ client_id: CONF.googleClientId, hd: 'turbin.se', auto_select: true, callback: onCredential });
       google.accounts.id.renderButton($('#gsi'), { theme: 'filled_black', size: 'large', shape: 'rectangular', text: 'signin_with' });

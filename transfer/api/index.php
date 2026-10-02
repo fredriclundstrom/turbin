@@ -43,7 +43,8 @@ function a_config(): never {
   out([
     'live' => true,
     'crew' => array_map(fn($id, $c) => ['id' => $id, 'name' => $c[0]], array_keys(crew()), crew()),
-    'googleClientId' => cfg('google_client_id'),
+    'login' => cfg('google_client_id') ? 'google' : 'password',
+    'googleClientId' => cfg('google_client_id') ?: null,
     'turnstile' => cfg('turnstile_site_key') ?: null,
     'me' => ($m = me()) ? ['id' => $m['id'], 'name' => $m['name']] : null,
   ]);
@@ -51,6 +52,7 @@ function a_config(): never {
 
 /* ---------- crew sign-in: a Google ID token from "Sign in with Google", checked with Google ---------- */
 function a_login(): never {
+  if (!cfg('google_client_id')) login_password();
   $cred = (string)(body()['credential'] ?? '');
   if (!$cred) fail('Missing credential');
   $r = http('GET', 'https://oauth2.googleapis.com/tokeninfo?id_token=' . urlencode($cred));
@@ -58,6 +60,21 @@ function a_login(): never {
   if ($r['code'] !== 200 || ($t['aud'] ?? '') !== cfg('google_client_id') || ($t['email_verified'] ?? '') !== 'true'
       || ($t['hd'] ?? '') !== cfg('workspace_domain')) fail('Sign-in failed', 401);
   $m = crew_by_email($t['email']) ?? fail('This account isn’t on the Turbin crew list', 403);
+  start_session(); session_regenerate_id(true);
+  $_SESSION['crew'] = $m['id'];
+  out(['me' => ['id' => $m['id'], 'name' => $m['name']]]);
+}
+/* ---------- …or the simple way: one shared crew password, then pick your name ---------- */
+function login_password(): never {
+  $pw = (string)(body()['password'] ?? ''); $m = crew(str_in(body(), 'who', 40));
+  $rl = 'rl-login-' . md5(client_ip()) . '.json';
+  $tries = array_values(array_filter(read_json($rl) ?? [], fn($t) => $t > time() - 900));
+  if (count($tries) >= 8) fail('Too many attempts — try again in 15 minutes', 429);
+  if (!cfg('crew_password') || !hash_equals((string)cfg('crew_password'), $pw)) {
+    with_json($rl, fn() => [[...$tries, time()], null]);
+    fail('Wrong password', 401);
+  }
+  if (!$m) fail('Choose who you are');
   start_session(); session_regenerate_id(true);
   $_SESSION['crew'] = $m['id'];
   out(['me' => ['id' => $m['id'], 'name' => $m['name']]]);

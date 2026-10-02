@@ -17,15 +17,18 @@ return [
   'incoming_name' => 'Inkommande',
   'outgoing_name' => 'Utgående',
 
-  // OAuth client ID for "Sign in with Google" (crew only). Google Cloud → APIs & Services → Credentials.
-  'google_client_id' => 'PASTE-CLIENT-ID.apps.googleusercontent.com',
+  // ---- Crew sign-in -------------------------------------------------------------------------
+  // Simple: one shared crew password (pick a long one). Used when google_client_id is empty.
+  'crew_password' => 'CHOOSE-A-LONG-PASSWORD',
+  // Later, optional: "Sign in with Google" instead – an OAuth client ID from Google Cloud → APIs & Services → Credentials.
+  'google_client_id' => '',
   // Only accounts in this Workspace domain can sign in as crew.
   'workspace_domain' => 'turbin.se',
 
   // ---- Mail ------------------------------------------------------------------------------
-  // 'gmail': sent through the Gmail API as `mail_as` (needs domain-wide delegation, scope gmail.send).
-  // 'php':   PHP mail() on Loopia (may land in spam, since turbin.se mail is Google).
-  'mail_via'  => 'gmail',
+  // 'php':   PHP mail() on Loopia – works right away (add Loopia to turbin.se's SPF record so it isn't marked as spam).
+  // 'gmail': later, optional – through the Gmail API as `mail_as` (needs domain-wide delegation, scope gmail.send).
+  'mail_via'  => 'php',
   'mail_as'   => 'info@turbin.se',      // a real Workspace user (or an alias of one) that mail is sent from
   'mail_name' => 'Turbin Transfer',
 
