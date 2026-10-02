@@ -2,7 +2,7 @@
 /*
   Turbin Transfer – backend. One endpoint, ?a=<action>.
 
-  Clients (open):   config · start → file (per file) → finish | cancel
+  Clients (open):   config · start → file (per file, status after a dropped connection) → finish | cancel
   Crew (signed in): login · logout · deliver → file → finish | cancel · history
   Download (open):  delivery?d=<id> · get?d=<id>&f=<file id>
 
@@ -29,6 +29,7 @@ match ($a) {
   'start'    => $post ? a_start() : fail('POST only', 405),
   'deliver'  => $post ? a_deliver() : fail('POST only', 405),
   'file'     => $post ? a_file() : fail('POST only', 405),
+  'status'   => $post ? a_status() : fail('POST only', 405),
   'finish'   => $post ? a_finish() : fail('POST only', 405),
   'cancel'   => $post ? a_cancel() : fail('POST only', 405),
   'history'  => a_history(),
@@ -176,7 +177,20 @@ function a_file(): never {
     }
     return [$j, $at];
   });
-  out(['url' => upload_session($parent, $name, $size, $type, page_origin())]);
+  $url = upload_session($parent, $name, $size, $type, page_origin());
+  with_json("job-$id.json", function ($j) use ($i, $url) { $j['uploads'][$i] = $url; return [$j, null]; });
+  out(['url' => $url]);
+}
+
+/* After a dropped connection: how much of file i has Google got? (Google doesn't let the browser read this itself.) */
+function a_status(): never {
+  [, $job] = load_job();
+  $i = (int)(body()['i'] ?? -1);
+  $url = $job['uploads'][$i] ?? fail('Unknown file');
+  $r = http('PUT', $url, ['Content-Range: bytes */' . $job['files'][$i][1], 'Content-Length: 0'], '');
+  if ($r['code'] === 200 || $r['code'] === 201) out(['done' => true]);
+  if ($r['code'] === 308) out(['next' => preg_match('/bytes=0-(\d+)/', $r['headers']['range'] ?? '', $m) ? (int)$m[1] + 1 : 0]);
+  fail('The upload expired — please start the send again', 410);
 }
 
 function a_finish(): never {

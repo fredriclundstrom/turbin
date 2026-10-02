@@ -784,7 +784,7 @@ function initSend() {
       try {
         const r = await put(url, f, offset, end);
         if (job?.offline) { job.offline = false; status('Back online — resumed where it left off.'); }
-        offset = r.done ? f.size : r.next ?? end;
+        offset = r.done ? f.size : r.next;
       } catch (e) {
         if (!job || job.cancelled) return;
         if (e.fatal) throw e;
@@ -792,32 +792,32 @@ function initSend() {
         // ask Google how much it has, then carry on from there
         for (let wait = 1000; ; wait = Math.min(wait * 2, 30000)) {
           await sleep(wait);
-          try { const s = await put(url, f, -1, -1); offset = s.done ? f.size : s.next ?? 0; break; } catch (e2) { if (e2.fatal) throw e2; }
+          try { const s = await api('status', { job: job.id, i }); offset = s.done ? f.size : s.next; break; }
+          catch (e2) { if (e2 instanceof ApiError && e2.status < 500) throw e2; }
         }
       }
       f.sent = offset;
     }
     f.sent = f.size; f.done = true;
   }
-  // one PUT to Google. start = -1 asks for the upload's status instead of sending bytes
+  // one PUT of bytes start..end-1 straight to Google
   function put(url, f, start, end) {
     return new Promise((ok, no) => {
       const x = new XMLHttpRequest();
       job.xhrs.add(x);
       x.open('PUT', url);
-      if (start < 0) x.setRequestHeader('Content-Range', `bytes */${f.size}`);
-      else if (f.size) x.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${f.size}`);
-      if (start >= 0) x.upload.onprogress = e => { f.sent = start + e.loaded; };
+      if (f.size) x.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${f.size}`);
+      x.upload.onprogress = e => { f.sent = start + e.loaded; };
       x.onload = () => {
         job?.xhrs.delete(x);
         if (x.status === 200 || x.status === 201) return ok({ done: true });
-        if (x.status === 308) { const m = /bytes=0-(\d+)/.exec(x.getResponseHeader('Range') || ''); return ok({ next: m ? +m[1] + 1 : (start < 0 ? 0 : null) }); }
+        if (x.status === 308) return ok({ next: end });   // chunk accepted (Google hides the Range header from browsers)
         const err = new Error(x.status === 404 || x.status === 410 ? 'The upload expired — please start the send again.' : 'Upload failed (' + x.status + ')');
         err.fatal = x.status === 404 || x.status === 410 || (x.status >= 400 && x.status < 500 && x.status !== 408 && x.status !== 429);
         no(err);
       };
       x.onerror = x.ontimeout = x.onabort = () => { job?.xhrs.delete(x); no(new Error('network')); };
-      x.send(start < 0 ? null : f.file.slice(start, end));
+      x.send(f.file.slice(start, end));
     });
   }
 
