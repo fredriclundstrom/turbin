@@ -195,7 +195,9 @@ function crew_by_email(string $email): ?array {
 function start_session(): void {
   if (session_status() === PHP_SESSION_ACTIVE) return;
   session_name('tt');
-  session_set_cookie_params(['lifetime' => 0, 'path' => '/', 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
+  // the cookie only belongs to this app's folder (e.g. /transfer/), not to other apps on the same domain
+  $path = rtrim(dirname(dirname($_SERVER['SCRIPT_NAME'] ?? '/api/index.php')), '/') . '/';
+  session_set_cookie_params(['lifetime' => 0, 'path' => $path, 'secure' => !empty($_SERVER['HTTPS']), 'httponly' => true, 'samesite' => 'Lax']);
   session_start();
 }
 function me(): ?array { start_session(); return isset($_SESSION['crew']) ? crew($_SESSION['crew']) : null; }
