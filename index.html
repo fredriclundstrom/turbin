@@ -166,7 +166,7 @@
   .team{border-top:0}
   /* Turbin Studio: same build as proofing, far down after the crew; the map band's own top margin follows */
   .studio{margin:clamp(88px,11vw,144px) 0 0}
-  .studio-mark{display:block;width:auto;height:clamp(44px,3.6vw,56px);margin:0 0 clamp(22px,2.4vw,32px);filter:var(--logo-img)}
+  .studio-mark{display:block;width:auto;height:clamp(64px,5.4vw,84px);margin:0 0 clamp(28px,3vw,44px);filter:var(--logo-img)}
 
   /* ---------- photo wall: two photos under the crew, one justified row edge to edge (like Selected work) ---------- */
   .wall{width:100vw;margin:clamp(64px,8vw,112px) 0 0 calc(50% - 50vw);display:flex;gap:clamp(6px,.6vw,10px)}
@@ -434,11 +434,12 @@
 
       <section class="proof sec studio" aria-labelledby="studio-title">
         <div class="proof-text">
-          <img class="studio-mark" src="assets/studio/turbin-studio-logo.svg" width="112" height="118" alt="Turbin Studio">
           <h2 id="studio-title" data-i18n="studioTitle">Every image, ready to publish</h2>
           <p data-i18n="studioCopy">Turbin Studio is our image processing tool for professionals. Every image is analysed and corrected on its own terms – exposure, contrast, colour balance – and cut out with one click. When an image needs more than automation, our retouchers in Stockholm take over, straight from the web tool or from inside InDesign.</p>
           <a class="proof-go" href="https://studio.turbin.se/" target="_blank" rel="noopener" data-i18n="studioCta">Try Studio · studio.turbin.se</a>
         </div>
+        <div class="studio-side">
+          <img class="studio-mark" src="assets/studio/turbin-studio-logo.svg" width="112" height="118" alt="Turbin Studio">
         <dl class="proof-spec">
           <div><dt data-i18n="stAuto">Automatic</dt><dd data-i18n="stAutoVal">Up to 40 corrections per image</dd></div>
           <div><dt data-i18n="stCut">Cut-out</dt><dd data-i18n="stCutVal">Background removal in one click</dd></div>
@@ -447,6 +448,7 @@
           <div><dt data-i18n="stExport">Export</dt><dd data-i18n="stExportVal">JPG, PNG, PSD · ICC profile embedded</dd></div>
           <div><dt data-i18n="stTry">Try it</dt><dd data-i18n="stTryVal">Ten free images</dd></div>
         </dl>
+        </div>
       </section>
 
       <section class="where" aria-labelledby="where-title">
