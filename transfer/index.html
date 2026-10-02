@@ -264,7 +264,7 @@
       <div>
         <div class="drop" id="drop">
           <p class="drop-big">Drop files<br>or folders</p>
-          <p class="drop-sub">Anything goes: print originals, raw footage, hundreds of files at once.</p>
+          <p class="drop-sub" id="drop-sub">Anything goes: print originals, raw footage, up to 100 files at once. More than that? Zip them first.</p>
           <p class="drop-or">or</p>
           <div class="picks">
             <button type="button" class="pick" id="pick-files">Choose files</button>
@@ -431,7 +431,7 @@ const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
    (GitHub Pages, or opened as a file) it runs as a preview with simulated uploads and sample data.
 ------------------------------------------------------------------- */
 const API = 'api/index.php';
-let LIVE = false, CONF = null, MAX_BYTES = 15e9, MAX_FILES = 5000;   // limits per send (live: from the server)
+let LIVE = false, CONF = null, MAX_BYTES = 15e9, MAX_FILES = 100;   // limits per send (live: from the server)
 let CREW = [
   { id: 'claes', name: 'Claes' }, { id: 'fredric', name: 'Fredric' },
   { id: 'kicki', name: 'Kicki' }, { id: 'ola', name: 'Ola' }, { id: 'patrik', name: 'Patrik' },
@@ -605,6 +605,8 @@ function initSend() {
     }).catch(() => {});
   }
 
+  $('#drop-sub').textContent = `Anything goes: print originals, raw footage, up to ${MAX_FILES} files at once. More than that? Zip them first.`;
+
   /* ---------- mode: client / crew ---------- */
   const COPY = {
     client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: `Drop originals, films or whole folders, up to ${fmt(MAX_BYTES)} per send. Files go straight to the right person at Turbin.`,
@@ -687,10 +689,11 @@ function initSend() {
     $('#files').hidden = !files.length;
     const total = files.reduce((a, f) => a + f.size, 0);
     $('#files-count').textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${fmt(total)}`;
-    const over = total > MAX_BYTES || files.length > MAX_FILES;
+    const tooMany = files.length > MAX_FILES, tooBig = total > MAX_BYTES;
     $('#sum').innerHTML = `<b>${files.length}</b> file${files.length === 1 ? '' : 's'} · <b>${fmt(total)}</b>`
-      + (over ? `<br><span class="over">Max ${fmt(MAX_BYTES)} / ${MAX_FILES} files per send. Please split it up.</span>` : '');
-    $('#go').disabled = !files.length || over;
+      + (tooMany ? `<br><span class="over">Max ${MAX_FILES} files per send. Please zip the material and send the zip instead.</span>`
+        : tooBig ? `<br><span class="over">Max ${fmt(MAX_BYTES)} per send. Please split it into several sends.</span>` : '');
+    $('#go').disabled = !files.length || tooMany || tooBig;
     list.innerHTML = files.map((f, i) =>
       `<li data-i="${i}"><span class="f-name" title="${esc(f.path)}">${splitPath(f.path)}</span><span class="f-size">${fmt(f.size)}</span><span class="f-state"><button type="button" class="x" aria-label="Remove ${esc(f.path)}">×</button></span><i class="bar"></i></li>`).join('');
     files.forEach((f, i) => f.el = list.children[i]);

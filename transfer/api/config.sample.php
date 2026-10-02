@@ -51,7 +51,7 @@ return [
 
   // ---- Abuse protection (the client side of the page is open) -----------------------------
   'max_send_bytes'   => 15 * 1000 ** 3,    // 15 GB per send
-  'max_files'        => 5000,              // files per send
+  'max_files'        => 100,               // files per send (more than that: ask for a zip)
   'sends_per_hour'   => 10,                // per IP address
   // Cloudflare Turnstile (invisible bot check). Leave empty to switch it off.
   'turnstile_site_key' => '',

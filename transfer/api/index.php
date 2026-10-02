@@ -88,7 +88,7 @@ function a_logout(): never { set_crew_cookie(null); out(['ok' => true]); }
 function file_list(): array {
   $files = body()['files'] ?? null;
   if (!is_array($files) || !$files) fail('No files');
-  if (count($files) > cfg('max_files')) fail('Too many files in one send (max ' . cfg('max_files') . ')');
+  if (count($files) > cfg('max_files')) fail('More than ' . cfg('max_files') . ' files in one send. Please zip them and send the zip instead');
   $out = []; $total = 0;
   foreach ($files as $f) {
     $parts = array_map('clean_name', array_values(array_filter(explode('/', (string)($f['path'] ?? '')), fn($p) => trim($p) !== '')));
