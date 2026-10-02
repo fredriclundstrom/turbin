@@ -235,7 +235,7 @@
         <h1 class="title" id="title">Send files<br>to Turbin</h1>
         <p class="copy" id="lead">Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.</p>
       </div>
-      <div class="modes" role="group" aria-label="Who are you?">
+      <div class="modes" id="modes" role="group" aria-label="Who are you?" hidden>
         <button type="button" data-mode="client" aria-pressed="true">Client</button>
         <button type="button" data-mode="crew" aria-pressed="false">Turbin crew</button>
       </div>
@@ -586,6 +586,10 @@ function initSend() {
     if (location.hash !== (m === 'crew' ? '#crew' : '')) history.replaceState(null, '', m === 'crew' ? '#crew' : location.pathname + location.search);
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { if (!job) setMode(b.dataset.mode); }));
+  // the client / crew switch is only shown to Turbin: via the #crew address, or on a computer where someone has signed in as crew
+  const crewDevice = () => { if (location.hash === '#crew' || me) store.set('crew', true); $('#modes').hidden = !store.get('crew', false); };
+  addEventListener('hashchange', () => { if (location.hash === '#crew' && !job) { crewDevice(); setMode('crew'); } });
+  crewDevice();
   setMode(location.hash === '#crew' ? 'crew' : 'client');
 
   /* ---------- adding files: pickers, drag and drop (files and folders) ---------- */
