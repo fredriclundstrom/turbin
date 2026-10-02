@@ -1,0 +1,4 @@
+# Turbin Transfer: secrets and working files stay on the server
+transfer/api/config.php
+transfer/api/private/*
+!transfer/api/private/.htaccess

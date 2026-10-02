@@ -134,6 +134,11 @@
   .who button:hover{border-color:var(--ink);color:var(--ink)}
   .who button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#000}
   .field.err .who button{border-color:rgba(255,90,78,.5)}
+  .signed{margin:6px 0 0;font-size:16px;display:flex;gap:14px;align-items:baseline;flex-wrap:wrap}
+  .signed button{background:none;border:0;padding:0;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);cursor:pointer}
+  .signed button:hover{color:var(--accent)}
+  #ts:not(:empty){margin:6px 0 4px}
+  .status-line.bad{color:var(--bad)}
 
   /* ---------- progress / done ---------- */
   .progress{margin-top:4px}
@@ -259,6 +264,13 @@
 
       <!-- right: details / progress / done -->
       <div>
+        <div class="panel" id="signin" hidden>
+          <h2>Crew sign-in</h2>
+          <p class="copy" style="margin:0 0 24px">Sign in with your Turbin Google account to deliver files and see your history.</p>
+          <div id="gsi"></div>
+          <p class="status-line warn" id="signin-err" hidden></p>
+        </div>
+
         <form class="panel" id="form" novalidate>
           <h2 id="form-title">Your details</h2>
 
@@ -277,7 +289,7 @@
 
           <!-- crew fields -->
           <div data-for="crew" hidden>
-            <div class="field" id="who-field"><span>From</span><div class="who" id="who" role="group" aria-label="From"></div></div>
+            <div class="field" id="who-field"><span>From</span><div class="who" id="who" role="group" aria-label="From"></div><p class="signed" id="signed" hidden></p></div>
             <label class="field"><span>Delivery name</span><input name="title" placeholder="e.g. Agria – final print files"></label>
             <div class="row2">
               <label class="field"><span>Client email <i>(optional)</i></span><input name="client" type="email" placeholder="We’ll email them the link"></label>
@@ -289,6 +301,7 @@
 
           <label class="field"><span>Message <i>(optional)</i></span><textarea name="message" rows="3" placeholder="Anything we should know?"></textarea></label>
 
+          <div id="ts"></div>
           <div class="actions">
             <span class="sum" id="sum"><b>0</b> files · <b>0 B</b></span>
             <button type="submit" class="btn primary" id="go" disabled>Send files →</button>
@@ -350,7 +363,7 @@
     <div class="dl-list">
       <div class="dl-top">
         <span class="sum" id="g-sum"></span>
-        <button type="button" class="btn primary" id="g-all">Download all (.zip)</button>
+        <button type="button" class="btn primary" id="g-all">Download all</button>
       </div>
       <ul class="list" id="g-list"></ul>
     </div>
@@ -376,25 +389,26 @@ const $ = s => document.querySelector(s);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ------------------------------------------------------------------
-   Config. The real page gets the crew list and deliveries from the PHP backend;
-   until then everything below is local demo data (DEMO = true).
+   Live or preview. The page asks the PHP backend (api/) for its config; if there is none —
+   GitHub Pages, or opened as a file — it runs as a preview with simulated uploads and sample data.
 ------------------------------------------------------------------- */
-const DEMO = true;
-const CREW = [
+const API = 'api/index.php';
+let LIVE = false, CONF = null;
+let CREW = [
   { id: 'claes', name: 'Claes' }, { id: 'fredric', name: 'Fredric' },
   { id: 'kicki', name: 'Kicki' }, { id: 'ola', name: 'Ola' }, { id: 'patrik', name: 'Patrik' },
   { id: 'roger', name: 'Roger' }, { id: 'thomas', name: 'Thomas' },
 ];
 const DAY = 864e5;
 const SAMPLE = {
-  demo: { title: 'Agria – final print files', from: 'Fredric', sent: Date.now() - 2 * DAY, expires: Date.now() + 12 * DAY,
+  demo: { title: 'Agria – final print files', from: 'Fredric', by: 'fredric', sent: Date.now() - 2 * DAY, expires: Date.now() + 12 * DAY, downloaded: true,
     note: 'Hi! Here are the final print files for the spring campaign.\nPDF/X-4, 3 mm bleed. Shout if anything looks off.',
     files: [
       ['Agria_Vår_A4_210x297.pdf', 48.2e6], ['Agria_Vår_70x100_affisch.pdf', 312.6e6], ['Agria_Vår_Annons_Helsida.pdf', 21.4e6],
       ['Bilder/Agria_hund_01.tif', 182.3e6], ['Bilder/Agria_hund_02.tif', 176.9e6], ['Bilder/Agria_katt_01.tif', 168.1e6],
       ['Film/Agria_Vår_15s_1920x1080.mov', 2.41e9],
     ] },
-  old: { title: 'Peab – annual report proofs', from: 'Thomas', sent: Date.now() - 40 * DAY, expires: Date.now() - 10 * DAY, files: [] },
+  old: { title: 'Peab – annual report proofs', from: 'Thomas', by: 'thomas', sent: Date.now() - 40 * DAY, expires: Date.now() - 10 * DAY, files: [] },
 };
 
 /* ---------- helpers ---------- */
@@ -402,27 +416,52 @@ const fmt = b => { const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b 
 const fmtDate = t => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
 const fmtTime = s => !isFinite(s) ? '—' : s < 60 ? Math.ceil(s) + ' s left' : s < 3600 ? Math.ceil(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+const sleep = ms => new Promise(r => setTimeout(r, ms));
 const store = {
   get(k, d) { try { return JSON.parse(localStorage.getItem('tt-' + k)) ?? d; } catch { return d; } },
   set(k, v) { try { localStorage.setItem('tt-' + k, JSON.stringify(v)); } catch {} },
 };
 let toastT;
-const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); };
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2600); };
+const splitPath = p => { const k = p.lastIndexOf('/'); return k > 0 ? `<small>${esc(p.slice(0, k + 1))}</small>${esc(p.slice(k + 1))}` : esc(p); };
+
+class ApiError extends Error { constructor(msg, status) { super(msg); this.status = status; } }
+async function api(action, body, query = '') {
+  const r = await fetch(`${API}?a=${action}${query}`, body
+    ? { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }
+    : { credentials: 'same-origin' });
+  const j = await r.json().catch(() => ({ error: 'Unexpected reply from the server' }));
+  if (!r.ok || j.error) throw new ApiError(j.error || 'Server error ' + r.status, r.status);
+  return j;
+}
+const loadScript = src => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.async = true; s.onload = ok; s.onerror = no; document.head.append(s); });
 
 /* ------------------------------------------------------------------
-   Routing: ?d=<id> shows a delivery, otherwise the send page
+   Boot: ?d=<id> shows a delivery, otherwise the send page
 ------------------------------------------------------------------- */
-const params = new URLSearchParams(location.search);
-const dId = params.get('d');
-if (!DEMO) $('#demo').hidden = true;
-if (dId) showDelivery(dId); else initSend();
+(async () => {
+  try {
+    const r = await fetch(API + '?a=config', { credentials: 'same-origin' });
+    if (r.ok && (r.headers.get('content-type') || '').includes('json')) { CONF = await r.json(); LIVE = !!CONF.live; }
+  } catch {}
+  if (LIVE) { CREW = CONF.crew; $('#demo').hidden = true; }
+  const d = new URLSearchParams(location.search).get('d');
+  if (d) showDelivery(d); else initSend();
+})();
 
 /* ================================================================== */
-function showDelivery(id) {
+async function showDelivery(id) {
   $('#view-send').hidden = true;
-  const all = { ...SAMPLE, ...store.get('deliveries', {}) };
-  const d = all[id];
+  let d;
+  if (LIVE) {
+    try {
+      const j = await api('delivery', null, '&d=' + encodeURIComponent(id));
+      d = { ...j, files: j.files.map(([fid, path, size]) => [path, size, fid]) };
+    } catch (e) { d = null; }
+  } else {
+    d = { ...SAMPLE, ...store.get('deliveries', {}) }[id];
+  }
   if (!d || d.expires < Date.now()) { $('#view-gone').hidden = false; document.title = 'Link expired · Turbin Transfer'; return; }
   $('#view-get').hidden = false;
   document.title = d.title + ' · Turbin Transfer';
@@ -434,41 +473,86 @@ function showDelivery(id) {
   $('#g-exp').textContent = fmtDate(d.expires);
   if (d.note) { $('#g-note').hidden = false; $('#g-note').textContent = d.note; }
   $('#g-sum').innerHTML = `<b>${d.files.length}</b> files · <b>${fmt(total)}</b>`;
-  $('#g-list').innerHTML = d.files.map(([n, s], i) => {
-    const k = n.lastIndexOf('/');
-    return `<li><span class="f-name">${k > 0 ? `<small>${esc(n.slice(0, k + 1))}</small>` : ''}${esc(n.slice(k + 1))}</span><span class="f-size">${fmt(s)}</span><button type="button" class="btn ghost get" data-i="${i}">Download</button></li>`;
-  }).join('');
-  const fake = () => toast(DEMO ? 'Preview — the download starts here on the live page' : 'Starting download…');
-  $('#g-list').addEventListener('click', e => { if (e.target.closest('.get')) fake(); });
-  $('#g-all').addEventListener('click', fake);
+  const href = f => `${API}?a=get&d=${encodeURIComponent(id)}&f=${encodeURIComponent(f[2])}`;
+  $('#g-list').innerHTML = d.files.map((f, i) =>
+    `<li><span class="f-name">${splitPath(f[0])}</span><span class="f-size">${fmt(f[1])}</span>${LIVE
+      ? `<a class="btn ghost get" href="${href(f)}" download>Download</a>`
+      : `<button type="button" class="btn ghost get" data-i="${i}">Download</button>`}</li>`).join('');
+  if (!LIVE) $('#g-list').addEventListener('click', e => { if (e.target.closest('.get')) toast('Preview — the download starts here on the live page'); });
+  $('#g-all').addEventListener('click', async () => {
+    if (!LIVE) return toast('Preview — the download starts here on the live page');
+    // one file after another; the browser may ask once to allow several downloads
+    toast(`Downloading ${d.files.length} files…`);
+    for (const f of d.files) {
+      const a = document.createElement('a'); a.href = href(f); a.download = ''; document.body.append(a); a.click(); a.remove();
+      await sleep(900);
+    }
+  });
 }
 
 /* ================================================================== */
 function initSend() {
   const form = $('#form'), F = form.elements;
-  let mode = 'client', me = store.get('me', '');
+  const params = new URLSearchParams(location.search);
+  let mode = 'client';
+  let me = LIVE ? CONF.me?.id || '' : store.get('me', '');
   let files = [];             // { file, path, size, sent, el }
   let job = null;             // running upload
 
-  // crew list into the client's "send to" and the crew's "from"
-  F.to.insertAdjacentHTML('beforeend', CREW.map(c => `<option value="${c.id}">${c.name}</option>`).join(''));
-  $('#who').innerHTML = CREW.map(c => `<button type="button" data-id="${c.id}" aria-pressed="${c.id === me}">${c.name}</button>`).join('');
+  // the crew list: the client's "send to" and the crew's "from" (preview only — live, you are who you signed in as)
+  F.to.insertAdjacentHTML('beforeend', CREW.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join(''));
+  const pre = params.get('to'); if (pre && CREW.some(c => c.id === pre)) F.to.value = pre;   // ?to=kicki preselects
+  function renderWho() {
+    const name = CREW.find(c => c.id === me)?.name;
+    $('#who').hidden = LIVE; $('#signed').hidden = !LIVE || !me;
+    if (LIVE) { $('#signed').innerHTML = me ? `${esc(name || me)} <button type="button" id="signout">Sign out</button>` : ''; return; }
+    $('#who').innerHTML = CREW.map(c => `<button type="button" data-id="${c.id}" aria-pressed="${c.id === me}">${esc(c.name)}</button>`).join('');
+  }
+  renderWho();
   $('#who').addEventListener('click', e => {
     const b = e.target.closest('button'); if (!b) return;
-    me = b.dataset.id; store.set('me', me);
-    $('#who').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    me = b.dataset.id; store.set('me', me); renderWho();
     $('#who-field').classList.remove('err');
     renderHistory();
   });
-  // a link like ?to=kicki preselects the recipient
-  const pre = params.get('to'); if (pre && CREW.some(c => c.id === pre)) F.to.value = pre;
+  $('#signed').addEventListener('click', async e => {
+    if (!e.target.closest('#signout')) return;
+    try { await api('logout', {}); } catch {}
+    me = ''; renderWho(); setMode('crew');
+    try { google.accounts.id.disableAutoSelect(); } catch {}
+  });
+
+  /* ---------- crew sign-in with Google (live) ---------- */
+  let gsiReady = null;
+  function showSignin() {
+    $('#signin').hidden = false;
+    gsiReady ??= loadScript('https://accounts.google.com/gsi/client').then(() => {
+      google.accounts.id.initialize({ client_id: CONF.googleClientId, hd: 'turbin.se', auto_select: true, callback: onCredential });
+      google.accounts.id.renderButton($('#gsi'), { theme: 'filled_black', size: 'large', shape: 'rectangular', text: 'signin_with' });
+    }).catch(() => { $('#signin-err').hidden = false; $('#signin-err').textContent = 'Couldn’t load Google sign-in. Check your connection and reload.'; });
+  }
+  async function onCredential(r) {
+    $('#signin-err').hidden = true;
+    try {
+      const j = await api('login', { credential: r.credential });
+      me = j.me.id; CONF.me = j.me; renderWho(); setMode('crew');
+    } catch (e) { $('#signin-err').hidden = false; $('#signin-err').textContent = e.message; }
+  }
+
+  /* ---------- bot check for clients (Cloudflare Turnstile), only if the server has it switched on ---------- */
+  let tsWidget = null;
+  if (LIVE && CONF.turnstile) {
+    loadScript('https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit').then(() => {
+      tsWidget = turnstile.render('#ts', { sitekey: CONF.turnstile, theme: 'dark', appearance: 'interaction-only' });
+    }).catch(() => {});
+  }
 
   /* ---------- mode: client / crew ---------- */
   const COPY = {
     client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: 'Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.',
       form: 'Your details', go: 'Send files →', fine: 'Files are delivered privately to Turbin. Nothing you send here gets a public link.' },
     crew: { eyebrow: 'Turbin crew', title: 'Deliver files<br>to a client', lead: 'Upload, get a link, send it to the client. The link stops working when it expires.',
-      form: 'Delivery', go: 'Upload & get link →', fine: 'Only for files from Turbin to our clients. The live page asks for a crew login.' },
+      form: 'Delivery', go: 'Upload & get link →', fine: LIVE ? 'Only for files from Turbin to our clients.' : 'Only for files from Turbin to our clients. The live page asks for a crew login.' },
   };
   function setMode(m) {
     mode = m;
@@ -477,10 +561,12 @@ function initSend() {
     const c = COPY[m];
     $('#eyebrow').textContent = c.eyebrow; $('#title').innerHTML = c.title; $('#lead').textContent = c.lead;
     $('#form-title').textContent = c.form; $('#go').textContent = c.go; $('#fine').textContent = c.fine;
-    $('#history').hidden = m !== 'crew';
     form.querySelectorAll('.err').forEach(el => el.classList.remove('err'));
-    if (m === 'crew') renderHistory();
-    store.set('mode', m);
+    const locked = m === 'crew' && LIVE && !me;          // live crew mode needs a sign-in first
+    $('#signin').hidden = !locked; form.hidden = locked || !$('#progress').hidden || !$('#done').hidden;
+    if (locked) showSignin();
+    $('#history').hidden = m !== 'crew' || locked;
+    if (m === 'crew' && !locked) renderHistory();
     if (location.hash !== (m === 'crew' ? '#crew' : '')) history.replaceState(null, '', m === 'crew' ? '#crew' : location.pathname + location.search);
   }
   document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { if (!job) setMode(b.dataset.mode); }));
@@ -541,10 +627,8 @@ function initSend() {
     $('#files-count').textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${fmt(total)}`;
     $('#sum').innerHTML = `<b>${files.length}</b> file${files.length === 1 ? '' : 's'} · <b>${fmt(total)}</b>`;
     $('#go').disabled = !files.length;
-    list.innerHTML = files.map((f, i) => {
-      const k = f.path.lastIndexOf('/');
-      return `<li data-i="${i}"><span class="f-name" title="${esc(f.path)}">${k > 0 ? `<small>${esc(f.path.slice(0, k + 1))}</small>` : ''}${esc(f.path.slice(k + 1))}</span><span class="f-size">${fmt(f.size)}</span><span class="f-state"><button type="button" class="x" aria-label="Remove ${esc(f.path)}">×</button></span><i class="bar"></i></li>`;
-    }).join('');
+    list.innerHTML = files.map((f, i) =>
+      `<li data-i="${i}"><span class="f-name" title="${esc(f.path)}">${splitPath(f.path)}</span><span class="f-size">${fmt(f.size)}</span><span class="f-state"><button type="button" class="x" aria-label="Remove ${esc(f.path)}">×</button></span><i class="bar"></i></li>`).join('');
     files.forEach((f, i) => f.el = list.children[i]);
   }
   list.addEventListener('click', e => {
@@ -554,6 +638,7 @@ function initSend() {
   $('#clear').onclick = () => { if (!job) { files = []; renderFiles(); } };
 
   /* ---------- validation + start ---------- */
+  const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   form.addEventListener('input', e => e.target.closest('.field')?.classList.remove('err'));
   form.addEventListener('submit', e => {
     e.preventDefault();
@@ -562,12 +647,12 @@ function initSend() {
     const need = (name, ok) => { if (!ok) bad.push(F[name].closest('.field')); };
     if (mode === 'client') {
       need('name', F.name.value.trim());
-      need('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(F.email.value.trim()));
+      need('email', EMAIL.test(F.email.value.trim()));
       need('to', F.to.value);
     } else {
       if (!me) bad.push($('#who-field'));
       need('title', F.title.value.trim());
-      if (F.client.value.trim()) need('client', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(F.client.value.trim()));
+      if (F.client.value.trim()) need('client', EMAIL.test(F.client.value.trim()));
     }
     bad.forEach(f => f.classList.add('err'));
     if (bad.length) { (bad[0].querySelector('input,select,button')).focus(); toast('Please fill in the marked fields'); return; }
@@ -575,107 +660,206 @@ function initSend() {
   });
 
   /* ------------------------------------------------------------------
-     Upload. DEMO simulates a fast connection with a dropped connection along the way.
-     Live: ask PHP for a resumable session per file, then PUT chunks straight to Google Drive,
-     three files at a time, resuming from the last confirmed byte after a network error.
+     Upload. Live: the server opens a Google Drive resumable upload per file and the browser
+     PUTs the bytes straight to Google in chunks, three files at a time. After a network error
+     it asks Google how far it got and carries on from there. Preview: simulated.
   ------------------------------------------------------------------- */
   function start() {
     const total = files.reduce((a, f) => a + f.size, 0);
-    job = { total, paused: false, cancelled: false, t0: performance.now(), hist: [], dropped: false };
-    files.forEach(f => { f.sent = 0; f.el.querySelector('.f-state').textContent = '—'; });
+    job = { id: null, total, paused: false, cancelled: false, offline: false, hist: [], dropped: false, xhrs: new Set() };
+    files.forEach(f => { f.sent = 0; f.done = false; f.el.classList.remove('done'); f.el.querySelector('.f-state').textContent = '—'; });
     form.hidden = true; $('#progress').hidden = false; $('#done').hidden = true;
     $('#prog-title').textContent = mode === 'crew' ? 'Uploading' : 'Sending';
     $('#total').textContent = fmt(total);
-    $('#pause').textContent = 'Pause';
+    $('#pause').textContent = 'Pause'; $('#pause').disabled = false;
     document.querySelectorAll('[data-mode]').forEach(b => b.disabled = true);
-    $('#status').className = 'status-line';
-    $('#status').textContent = `Sending ${files.length} file${files.length > 1 ? 's' : ''}…`;
-    runDemo();
+    status(`Sending ${files.length} file${files.length > 1 ? 's' : ''}…`);
+    loop();
+    (LIVE ? runLive() : runDemo()).catch(err => {
+      if (!job || job.cancelled) return;
+      job.failed = true;
+      status(err.message || 'Something went wrong.', 'bad');
+      $('#pause').disabled = true;
+    });
+  }
+  const status = (msg, cls = '') => { $('#status').className = 'status-line ' + cls; $('#status').textContent = msg; };
+
+  // repaint progress every frame while a job runs
+  function loop() {
+    const tick = now => { if (!job) return; paint(now); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
   }
 
-  function runDemo() {
+  async function runDemo() {
     // ~60 MB/s, scaled so even huge sends finish within ~12 s in the preview
-    const rate = Math.max(60e6, job.total / 12);
-    const PAR = 3;
+    const rate = Math.max(60e6, job.total / 12), PAR = 3;
     let last = performance.now();
-    const tick = now => {
+    while (job && !job.cancelled) {
+      await new Promise(r => requestAnimationFrame(r));
       if (!job || job.cancelled) return;
-      const dt = Math.min(.1, (now - last) / 1000); last = now;
+      const now = performance.now(), dt = Math.min(.1, (now - last) / 1000); last = now;
       if (!job.paused && !job.offline) {
         const active = files.filter(f => f.sent < f.size).slice(0, PAR);
         const per = rate * dt / Math.max(1, active.length);
         active.forEach(f => { f.sent = Math.min(f.size, f.sent + per * (0.7 + Math.random() * 0.6)); });
         // pretend the connection drops once around 40 %, then resumes
         const done = files.reduce((a, f) => a + f.sent, 0);
-        if (!job.dropped && done / job.total > .4 && job.total > 0) {
+        if (!job.dropped && done / job.total > .4) {
           job.dropped = true; job.offline = true;
-          $('#status').className = 'status-line warn';
-          $('#status').textContent = 'Connection lost — waiting to resume…';
-          setTimeout(() => { if (!job) return; job.offline = false; $('#status').className = 'status-line'; $('#status').textContent = 'Back online — resumed where it left off.'; last = performance.now(); }, 1800);
+          status('Connection lost — waiting to resume…', 'warn');
+          setTimeout(() => { if (!job) return; job.offline = false; status('Back online — resumed where it left off.'); last = performance.now(); }, 1800);
         }
       }
-      paint(now);
-      if (files.every(f => f.sent >= f.size)) return finish();
-      requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
+      if (files.every(f => f.sent >= f.size)) {
+        let res = { ok: true };
+        if (mode === 'crew') {
+          const id = rid(), days = +F.expires.value;
+          const d = { title: F.title.value.trim(), from: CREW.find(c => c.id === me).name, by: me, sent: Date.now(), expires: Date.now() + days * DAY,
+            note: F.message.value.trim(), files: files.map(f => [f.path, f.size]), downloaded: false };
+          const all = store.get('deliveries', {}); all[id] = d; store.set('deliveries', all);
+          res = { url: new URL('?d=' + id, location.href.split('#')[0].split('?')[0]).href, expires: d.expires };
+        } else res.to = CREW.find(c => c.id === F.to.value)?.name;
+        return finish(res);
+      }
+    }
+  }
+
+  async function runLive() {
+    const fields = mode === 'client'
+      ? { name: F.name.value, email: F.email.value, company: F.company.value, project: F.project.value, to: F.to.value, message: F.message.value,
+          turnstile: tsWidget !== null ? turnstile.getResponse(tsWidget) : '' }
+      : { title: F.title.value, client: F.client.value, expires: +F.expires.value, message: F.message.value };
+    status('Preparing…');
+    const r = await api(mode === 'client' ? 'start' : 'deliver', { ...fields, files: files.map(f => ({ path: f.path, size: f.size, type: f.file.type })) });
+    job.id = r.job;
+    status(`Sending ${files.length} file${files.length > 1 ? 's' : ''}…`);
+    // three files in flight at a time
+    let next = 0;
+    const worker = async () => { while (job && !job.cancelled && next < files.length) await uploadFile(next++); };
+    await Promise.all([worker(), worker(), worker()]);
+    if (!job || job.cancelled) return;
+    status('Finishing…');
+    finish(await withRetry(() => api('finish', { job: job.id })));
+  }
+
+  // keep trying through dropped connections; give up only on a real error from the server
+  async function withRetry(fn) {
+    for (let wait = 1000; ; wait = Math.min(wait * 2, 30000)) {
+      try { const r = await fn(); if (job?.offline) { job.offline = false; status('Back online — resumed where it left off.'); } return r; }
+      catch (e) {
+        if (!job || job.cancelled) throw e;
+        if (e instanceof ApiError && e.status < 500 && e.status !== 429) throw e;
+        job.offline = true; status('Connection lost — trying again…', 'warn');
+        await sleep(wait);
+      }
+    }
+  }
+  async function waitWhilePaused() { while (job && job.paused && !job.cancelled) await sleep(300); }
+
+  const CHUNK = 32 * 256 * 1024;   // 8 MB; Google wants multiples of 256 KB
+  async function uploadFile(i) {
+    const f = files[i];
+    const url = (await withRetry(() => api('file', { job: job.id, i }))).url;
+    let offset = 0;
+    if (f.size === 0) { await withRetry(() => put(url, f, 0, 0)); }
+    while (job && !job.cancelled && offset < f.size) {
+      await waitWhilePaused();
+      const end = Math.min(offset + CHUNK, f.size);
+      try {
+        const r = await put(url, f, offset, end);
+        if (job?.offline) { job.offline = false; status('Back online — resumed where it left off.'); }
+        offset = r.done ? f.size : r.next ?? end;
+      } catch (e) {
+        if (!job || job.cancelled) return;
+        if (e.fatal) throw e;
+        job.offline = true; status('Connection lost — waiting to resume…', 'warn');
+        // ask Google how much it has, then carry on from there
+        for (let wait = 1000; ; wait = Math.min(wait * 2, 30000)) {
+          await sleep(wait);
+          try { const s = await put(url, f, -1, -1); offset = s.done ? f.size : s.next ?? 0; break; } catch (e2) { if (e2.fatal) throw e2; }
+        }
+      }
+      f.sent = offset;
+    }
+    f.sent = f.size; f.done = true;
+  }
+  // one PUT to Google. start = -1 asks for the upload's status instead of sending bytes
+  function put(url, f, start, end) {
+    return new Promise((ok, no) => {
+      const x = new XMLHttpRequest();
+      job.xhrs.add(x);
+      x.open('PUT', url);
+      if (start < 0) x.setRequestHeader('Content-Range', `bytes */${f.size}`);
+      else if (f.size) x.setRequestHeader('Content-Range', `bytes ${start}-${end - 1}/${f.size}`);
+      if (start >= 0) x.upload.onprogress = e => { f.sent = start + e.loaded; };
+      x.onload = () => {
+        job?.xhrs.delete(x);
+        if (x.status === 200 || x.status === 201) return ok({ done: true });
+        if (x.status === 308) { const m = /bytes=0-(\d+)/.exec(x.getResponseHeader('Range') || ''); return ok({ next: m ? +m[1] + 1 : (start < 0 ? 0 : null) }); }
+        const err = new Error(x.status === 404 || x.status === 410 ? 'The upload expired — please start the send again.' : 'Upload failed (' + x.status + ')');
+        err.fatal = x.status === 404 || x.status === 410 || (x.status >= 400 && x.status < 500 && x.status !== 408 && x.status !== 429);
+        no(err);
+      };
+      x.onerror = x.ontimeout = x.onabort = () => { job?.xhrs.delete(x); no(new Error('network')); };
+      x.send(start < 0 ? null : f.file.slice(start, end));
+    });
   }
 
   function paint(now) {
-    const sent = files.reduce((a, f) => a + f.sent, 0);
-    const p = job.total ? sent / job.total : 1;
+    if (!job) return;
+    const sent = files.reduce((a, f) => a + Math.min(f.sent, f.size), 0);
+    const p = job.total ? sent / job.total : files.every(f => f.done || f.sent >= f.size) ? 1 : 0;
     $('#pct').textContent = Math.floor(p * 100);
     $('#meter').style.width = (p * 100) + '%';
     $('#sent').textContent = fmt(sent);
-    job.hist.push([now, sent]); while (job.hist.length && now - job.hist[0][0] > 3000) job.hist.shift();
+    job.hist.push([now, sent]); while (job.hist.length > 1 && now - job.hist[0][0] > 4000) job.hist.shift();
     const [t0, s0] = job.hist[0], bps = now > t0 ? (sent - s0) / ((now - t0) / 1000) : 0;
     $('#speed').textContent = job.paused ? 'Paused' : job.offline ? 'Offline' : bps > 0 ? fmt(bps) + '/s' : '—';
     $('#eta').textContent = bps > 0 && !job.paused && !job.offline ? fmtTime((job.total - sent) / bps) : '—';
     files.forEach(f => {
       if (!f.el) return;
-      const q = f.size ? f.sent / f.size : 1;
+      const q = f.size ? Math.min(1, f.sent / f.size) : f.done ? 1 : 0;
       f.el.querySelector('.bar').style.width = (q * 100) + '%';
       const st = f.el.querySelector('.f-state');
-      if (q >= 1) { if (!f.el.classList.contains('done')) { f.el.classList.add('done'); st.textContent = 'Done'; } }
+      if (q >= 1 && (f.done || !LIVE)) { if (!f.el.classList.contains('done')) { f.el.classList.add('done'); st.textContent = 'Done'; } }
       else if (f.sent > 0) st.textContent = Math.floor(q * 100) + '%';
     });
   }
 
   $('#pause').onclick = () => {
-    if (!job) return;
+    if (!job || job.failed) return;
     job.paused = !job.paused;
     $('#pause').textContent = job.paused ? 'Resume' : 'Pause';
-    $('#status').textContent = job.paused ? 'Paused. Resume whenever you like.' : 'Resumed.';
+    status(job.paused ? 'Paused. Resume whenever you like.' : 'Resumed.');
   };
-  $('#cancel').onclick = () => {
-    if (!job || !confirm('Cancel the upload? Files already sent will be removed.')) return;
-    job.cancelled = true; job = null; reset(true);
+  $('#cancel').onclick = async () => {
+    if (!job) return;
+    if (!job.failed && !confirm('Cancel the upload? Files already sent will be removed.')) return;
+    const j = job; j.cancelled = true; job = null;
+    j.xhrs.forEach(x => x.abort());
+    if (LIVE && j.id) api('cancel', { job: j.id }).catch(() => {});
+    reset(true);
   };
-  addEventListener('beforeunload', e => { if (job) { e.preventDefault(); e.returnValue = ''; } });
+  addEventListener('beforeunload', e => { if (job && !job.failed) { e.preventDefault(); e.returnValue = ''; } });
 
-  function finish() {
+  function finish(res) {
     const total = job.total, n = files.length;
+    paint(performance.now());
     job = null;
     document.querySelectorAll('[data-mode]').forEach(b => b.disabled = false);
     $('#progress').hidden = true; $('#done').hidden = false;
     $('#preview').hidden = true; $('#done-link').hidden = true;
     if (mode === 'client') {
-      const to = CREW.find(c => c.id === F.to.value)?.name || 'Turbin';
       $('#done-title').textContent = 'Delivered';
-      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) sent to ${to} at Turbin. A receipt is on its way to ${F.email.value.trim()}.`;
+      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) sent to ${res.to || 'Turbin'} at Turbin. A receipt is on its way to ${F.email.value.trim()}.`;
+      if (tsWidget !== null) try { turnstile.reset(tsWidget); } catch {}
     } else {
-      const id = rid(), days = +F.expires.value;
-      const d = { title: F.title.value.trim(), from: CREW.find(c => c.id === me).name, by: me, sent: Date.now(), expires: Date.now() + days * DAY,
-        note: F.message.value.trim(), files: files.map(f => [f.path, f.size]), downloaded: false };
-      const all = store.get('deliveries', {}); all[id] = d; store.set('deliveries', all);
-      const url = new URL('?d=' + id, location.href.split('#')[0].split('?')[0]).href;
       $('#done-title').textContent = 'Ready to share';
-      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) uploaded. The link works until ${fmtDate(d.expires)}.` + (F.client.value.trim() ? ` We’ve emailed it to ${F.client.value.trim()}.` : '');
-      $('#done-link').hidden = false; $('#link').value = url;
-      $('#preview').hidden = false; $('#preview').href = url; $('#preview').target = '_blank';
+      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) uploaded. The link works until ${fmtDate(res.expires)}.` + (F.client.value.trim() ? ` We’ve emailed it to ${F.client.value.trim()}.` : '');
+      $('#done-link').hidden = false; $('#link').value = res.url;
+      $('#preview').hidden = false; $('#preview').href = res.url; $('#preview').target = '_blank';
       renderHistory();
     }
-    $('#done').querySelector('h2').focus?.();
   }
   $('#copy').onclick = async () => {
     const v = $('#link').value;
@@ -687,25 +871,33 @@ function initSend() {
 
   function reset(keepFiles) {
     if (!keepFiles) { files = []; form.reset(); F.expires.value = '14'; if (pre) F.to.value = pre; }
-    files.forEach(f => f.sent = 0);
+    files.forEach(f => { f.sent = 0; f.done = false; });
     renderFiles();
     document.querySelectorAll('[data-mode]').forEach(b => b.disabled = false);
     form.hidden = false; $('#progress').hidden = true; $('#done').hidden = true;
   }
 
   /* ---------- crew history ---------- */
-  function renderHistory() {
+  async function renderHistory() {
     const name = CREW.find(c => c.id === me)?.name;
     $('#hist-who').textContent = name ? name + '’s deliveries' : 'choose who you are above';
-    const mine = Object.entries({ ...SAMPLE, ...store.get('deliveries', {}) })
-      .filter(([, d]) => name && (d.by === me || d.from === name))
-      .sort((a, b) => b[1].sent - a[1].sent);
-    $('#hist-empty').hidden = !!mine.length;
-    $('#hist').innerHTML = mine.map(([id, d]) => {
-      const size = d.files.reduce((a, f) => a + f[1], 0), gone = d.expires < Date.now();
-      return `<tr><td><a href="?d=${id}" target="_blank">${esc(d.title)}</a></td><td class="m hide-s">${fmtDate(d.sent)}</td><td class="m hide-s">${d.files.length ? fmt(size) : '—'}</td>
+    let rows = [];
+    if (LIVE) {
+      if (!me) return;
+      try { rows = (await api('history')).deliveries; }
+      catch (e) { if (e.status === 401) { me = ''; renderWho(); setMode('crew'); } return; }
+    } else {
+      rows = Object.entries({ ...SAMPLE, ...store.get('deliveries', {}) })
+        .filter(([, d]) => name && d.by === me)
+        .map(([id, d]) => ({ id, title: d.title, sent: d.sent, expires: d.expires, bytes: d.files.reduce((a, f) => a + f[1], 0), n: d.files.length, downloaded: d.downloaded }))
+        .sort((a, b) => b.sent - a.sent);
+    }
+    $('#hist-empty').hidden = !!rows.length;
+    $('#hist').innerHTML = rows.map(d => {
+      const gone = d.expires < Date.now();
+      return `<tr><td>${gone ? esc(d.title) : `<a href="?d=${encodeURIComponent(d.id)}" target="_blank">${esc(d.title)}</a>`}</td><td class="m hide-s">${fmtDate(d.sent)}</td><td class="m hide-s">${d.n ? fmt(d.bytes) : '—'}</td>
         <td class="m">${gone ? '<span class="tag old">Expired</span>' : fmtDate(d.expires)}</td>
-        <td>${d.downloaded || id === 'demo' ? '<span class="tag yes">Yes</span>' : '<span class="tag">Not yet</span>'}</td></tr>`;
+        <td>${d.downloaded ? '<span class="tag yes">Yes</span>' : '<span class="tag">Not yet</span>'}</td></tr>`;
     }).join('');
   }
 }
