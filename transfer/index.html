@@ -1,0 +1,745 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turbin Transfer</title>
+<meta name="description" content="Send files to Turbin, or download files Turbin has sent you.">
+<meta name="robots" content="noindex">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#000;
+    --ground-lo:#141414;
+    --ground-mid:#1E1E1E;
+    --ink:#F2F2F0;
+    --ink-2:#B4B8BC;
+    --mute:#8C9196;
+    --line:rgba(242,242,240,.16);
+    --accent:#E5FF00;
+    --on-accent:#000;
+    --accent-soft:rgba(229,255,0,.3);
+    --bad:#FF5A4E;
+    --display:"Anton","Oswald","Impact","Arial Narrow",sans-serif;
+    --body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --pad:clamp(18px,3vw,36px);
+  }
+  *{box-sizing:border-box}
+  html{background:var(--ground)}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;flex-direction:column}
+  a{color:inherit}
+  button,input,select,textarea{font:inherit;color:inherit}
+  :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+  [hidden]{display:none !important}
+  .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+  /* ---------- header (same as the main site) ---------- */
+  .top{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:18px var(--pad)}
+  .brand{display:flex;align-items:center;gap:14px;text-decoration:none}
+  .brand svg{width:74px;height:auto;display:block;color:var(--ink)}
+  .brand span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase}
+  .top nav{display:flex;gap:22px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .top nav a{text-decoration:none;transition:opacity .2s,color .2s}
+  .top nav a:hover{opacity:.6}
+  .top nav a[aria-current]{color:var(--accent)}
+
+  /* ---------- cursor: hi-vis yellow dot (mouse and trackpad only) ---------- */
+  html.has-dot,html.has-dot *{cursor:none !important}
+  .dot{position:fixed;left:0;top:0;z-index:100;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--accent);
+    border:1.5px solid var(--accent);pointer-events:none;opacity:0;will-change:transform;
+    transition:width .25s cubic-bezier(.2,.7,.2,1),height .25s cubic-bezier(.2,.7,.2,1),margin .25s cubic-bezier(.2,.7,.2,1),background .2s,opacity .2s}
+  .dot.on{opacity:1}
+  .dot.link{width:40px;height:40px;margin:-20px 0 0 -20px;background:transparent}
+  .dot.grab{width:60px;height:60px;margin:-30px 0 0 -30px;background:rgba(229,255,0,.14)}
+  .dot.press{width:8px;height:8px;margin:-4px 0 0 -4px;background:var(--accent)}
+
+  /* ---------- layout ---------- */
+  main{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:clamp(24px,4vw,56px) var(--pad) clamp(48px,6vw,96px)}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);display:flex;gap:10px;align-items:center;margin:0 0 14px}
+  .eyebrow::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent)}
+  .title{font-family:var(--display);font-weight:400;text-transform:uppercase;line-height:.9;letter-spacing:.005em;margin:0;font-size:clamp(48px,6.6vw,104px);text-wrap:balance}
+  .copy{color:var(--ink-2);font-size:clamp(15px,1.15vw,17.5px);line-height:1.6;max-width:46ch;margin:20px 0 0;text-wrap:pretty}
+  .intro{display:grid;grid-template-columns:1fr auto;align-items:end;gap:24px;margin-bottom:clamp(32px,4vw,56px)}
+
+  /* mode switch: customer / Turbin crew */
+  .modes{display:inline-flex;border:1px solid var(--line);padding:3px;gap:3px}
+  .modes button{background:none;border:0;padding:9px 14px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);cursor:pointer;transition:background .2s,color .2s}
+  .modes button:hover{color:var(--ink)}
+  .modes button[aria-pressed=true]{background:var(--ink);color:#000}
+
+  .grid{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:clamp(20px,3vw,40px);align-items:start}
+
+  /* ---------- drop zone ---------- */
+  .drop{position:relative;min-height:clamp(280px,30vw,400px);background:var(--ground-lo);display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;padding:40px 24px;transition:background .25s}
+  .drop::after{content:"";position:absolute;inset:14px;border:1px dashed var(--line);pointer-events:none;transition:border-color .25s,inset .25s}
+  .drop.over{background:var(--accent);color:var(--on-accent)}
+  .drop.over::after{border-color:rgba(0,0,0,.4);inset:22px}
+  .drop.over .drop-sub,.drop.over .drop-or{color:rgba(0,0,0,.6)}
+  .drop.over .pick{border-color:#000;color:#000}
+  .drop-big{font-family:var(--display);font-size:clamp(40px,5.4vw,76px);line-height:.9;text-transform:uppercase;margin:0}
+  .drop-sub{font-size:14.5px;color:var(--ink-2);margin:14px 0 26px;max-width:34ch}
+  .drop-or{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 12px}
+  .picks{display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+  .pick,.btn{font-family:var(--body);font-size:14.5px;font-weight:500;letter-spacing:.01em;text-decoration:none;padding:13px 20px;border:1px solid var(--ink);background:none;color:var(--ink);cursor:pointer;transition:background .2s,color .2s,border-color .2s,opacity .2s;display:inline-flex;align-items:center;gap:10px;white-space:nowrap}
+  .pick:hover,.btn:hover{background:var(--ink);color:#000}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+  .btn.primary:hover{background:var(--ink);border-color:var(--ink)}
+  .btn[disabled]{opacity:.35;pointer-events:none}
+  .btn.ghost{border-color:var(--line);color:var(--ink-2)}
+  .btn.ghost:hover{border-color:var(--ink);background:none;color:var(--ink)}
+  .drop input[type=file]{display:none}
+
+  /* ---------- file list ---------- */
+  .files{margin-top:18px}
+  .files-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-bottom:8px}
+  .files-head button{background:none;border:0;padding:0;font:inherit;letter-spacing:inherit;text-transform:inherit;color:var(--ink-2);cursor:pointer}
+  .files-head button:hover{color:var(--accent)}
+  .list{list-style:none;margin:0;padding:0;max-height:min(46vh,420px);overflow:auto;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .list li{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:16px;align-items:center;padding:11px 14px;background:var(--ground-lo);margin-bottom:2px;overflow:hidden}
+  .list li .bar{position:absolute;left:0;bottom:0;height:2px;width:0;background:var(--accent);transition:width .25s linear}
+  .list li.done .bar{width:100% !important}
+  .f-name{min-width:0;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .f-name small{color:var(--mute);font-family:var(--mono);font-size:11px;letter-spacing:.04em;margin-right:2px}
+  .f-size,.f-state{font-family:var(--mono);font-size:11px;letter-spacing:.06em;color:var(--mute);white-space:nowrap}
+  .f-state{min-width:44px;text-align:right}
+  li.done .f-state{color:var(--accent)}
+  .x{background:none;border:0;padding:0 2px;color:var(--mute);cursor:pointer;font-size:16px;line-height:1}
+  .x:hover{color:var(--ink)}
+
+  /* ---------- form panel ---------- */
+  .panel{background:var(--ground-lo);padding:clamp(22px,2.6vw,34px)}
+  .panel h2{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(28px,2.8vw,40px);line-height:.95;margin:0 0 22px}
+  .field{display:block;margin-bottom:18px}
+  .field > span{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:6px}
+  .field > span i{font-style:normal;color:var(--ink-2);opacity:.6;text-transform:none;letter-spacing:.02em}
+  .field input,.field select,.field textarea{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line);padding:8px 0 10px;font-size:16px;color:var(--ink);border-radius:0;transition:border-color .2s;-webkit-appearance:none;appearance:none}
+  .field textarea{resize:vertical;min-height:72px;line-height:1.5}
+  .field select{background-image:linear-gradient(45deg,transparent 50%,var(--ink-2) 50%),linear-gradient(-45deg,transparent 50%,var(--ink-2) 50%);background-size:5px 5px;background-position:calc(100% - 9px) 55%,calc(100% - 4px) 55%;background-repeat:no-repeat;padding-right:24px;cursor:pointer}
+  .field select option{background:#141414;color:var(--ink)}
+  .field input:focus,.field select:focus,.field textarea:focus{outline:none;border-bottom-color:var(--accent)}
+  .field input::placeholder,.field textarea::placeholder{color:#55595d}
+  .field.err input,.field.err select{border-bottom-color:var(--bad)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  .panel .actions{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:26px;flex-wrap:wrap}
+  .sum{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+  .sum b{color:var(--ink);font-weight:500}
+  .fine{font-size:12.5px;color:var(--mute);margin:18px 0 0;line-height:1.5}
+
+  /* crew: choose who you are */
+  .who{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+  .who button{background:none;border:1px solid var(--line);padding:7px 11px;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-2);cursor:pointer;transition:all .2s}
+  .who button:hover{border-color:var(--ink);color:var(--ink)}
+  .who button[aria-pressed=true]{background:var(--accent);border-color:var(--accent);color:#000}
+  .field.err .who button{border-color:rgba(255,90,78,.5)}
+
+  /* ---------- progress / done ---------- */
+  .progress{margin-top:4px}
+  .big-pct{font-family:var(--display);font-size:clamp(72px,9vw,128px);line-height:.85;margin:0}
+  .big-pct small{font-size:.4em;color:var(--mute);margin-left:6px}
+  .meter{height:4px;background:var(--line);margin:18px 0 12px;position:relative;overflow:hidden}
+  .meter i{position:absolute;inset:0 auto 0 0;width:0;background:var(--accent);transition:width .3s linear}
+  .stats{display:flex;justify-content:space-between;gap:12px;font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
+  .stats b{color:var(--ink);font-weight:500}
+  .status-line{font-size:14px;color:var(--ink-2);margin:16px 0 0;min-height:1.5em}
+  .status-line.warn{color:var(--accent)}
+  .done-mark{width:58px;height:58px;border-radius:50%;background:var(--accent);display:grid;place-items:center;margin-bottom:20px}
+  .done-mark svg{width:26px;height:26px}
+  .linkbox{display:flex;margin-top:6px;border:1px solid var(--line)}
+  .linkbox input{flex:1;min-width:0;background:none;border:0;padding:13px 14px;font-family:var(--mono);font-size:13px;color:var(--ink)}
+  .linkbox input:focus{outline:none}
+  .linkbox button{border:0;background:var(--accent);color:#000;padding:0 18px;font-weight:500;font-size:14px;cursor:pointer;white-space:nowrap}
+  .linkbox button:hover{background:var(--ink)}
+
+  /* ---------- history (crew) ---------- */
+  .history{margin-top:clamp(48px,6vw,88px)}
+  .history h2{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(32px,3.6vw,52px);line-height:.95;margin:0 0 20px;display:flex;align-items:baseline;gap:16px;flex-wrap:wrap}
+  .history h2 small{font-family:var(--mono);font-size:11px;letter-spacing:.12em;color:var(--mute)}
+  .h-table{width:100%;border-collapse:collapse;font-size:14.5px}
+  .h-table th{font-family:var(--mono);font-weight:400;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);text-align:left;padding:0 14px 10px}
+  .h-table td{padding:13px 14px;background:var(--ground-lo);border-bottom:2px solid var(--ground);vertical-align:middle}
+  .h-table td.m{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);letter-spacing:.04em;white-space:nowrap}
+  .h-table td a{text-decoration:none;border-bottom:1px solid var(--line);transition:color .2s,border-color .2s}
+  .h-table td a:hover{color:var(--accent);border-color:var(--accent)}
+  .tag{display:inline-block;font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;padding:3px 7px;border:1px solid var(--line);color:var(--ink-2)}
+  .tag.yes{border-color:var(--accent);color:var(--accent)}
+  .tag.old{opacity:.5}
+  .h-empty{color:var(--mute);font-size:14.5px;padding:20px 0}
+
+  /* ---------- download view ---------- */
+  .dl-meta{display:flex;flex-wrap:wrap;gap:12px 40px;margin:28px 0 0}
+  .dl-meta div{min-width:120px}
+  .dl-meta dt{font-family:var(--mono);font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin-bottom:4px}
+  .dl-meta dd{margin:0;font-size:16px}
+  .note{margin:28px 0 0;padding:18px 20px;background:var(--ground-lo);border-left:2px solid var(--accent);color:var(--ink-2);max-width:62ch;white-space:pre-line}
+  .dl-list .list{max-height:none;overflow:visible}
+  .dl-list{margin-top:clamp(32px,4vw,48px)}
+  .dl-list li{grid-template-columns:minmax(0,1fr) auto auto}
+  .dl-list .get{font-size:13px;padding:7px 12px}
+  .dl-top{display:flex;justify-content:space-between;align-items:end;gap:16px;flex-wrap:wrap;margin-bottom:12px}
+
+  /* ---------- footer ---------- */
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:24px;padding:24px var(--pad) 28px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);flex-wrap:wrap}
+  .foot a{text-decoration:none;color:var(--ink-2);transition:color .2s}
+  .foot a:hover{color:var(--accent)}
+  .demo{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:30;background:var(--accent);color:#000;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;padding:7px 12px;white-space:nowrap;pointer-events:none}
+
+  .toast{position:fixed;left:50%;top:18px;transform:translate(-50%,-20px);opacity:0;z-index:40;background:var(--ink);color:#000;padding:10px 16px;font-size:14px;font-weight:500;transition:opacity .25s,transform .25s;pointer-events:none}
+  .toast.on{opacity:1;transform:translate(-50%,0)}
+
+  @media (max-width:860px){
+    .grid{grid-template-columns:1fr}
+    .intro{grid-template-columns:1fr}
+    .h-table .hide-s{display:none}
+  }
+  @media (max-width:520px){
+    .row2{grid-template-columns:1fr}
+    .top nav{gap:14px}
+    .brand span{display:none}
+    .list li{grid-template-columns:minmax(0,1fr) auto;gap:10px}
+    .list li .f-size{display:none}
+    .demo{left:16px;right:16px;transform:none;white-space:normal;text-align:center}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition:none !important;animation:none !important}
+  }
+</style>
+</head>
+<body>
+<div class="dot" id="dot" aria-hidden="true"></div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 565.59 276.45"><g fill="currentColor"><path d="M564.06,112.91c-2.48,2.89-4.58,6.13-8.6,7.2-1.55.36-3.15-.16-3.85-.65-1.16-1-2.08-3.18-1.81-5.1,1.29-11.95,4.04-24.23,5.3-36.29.7-4.67-.83-8.13-1.25-9.36-2.16-6.32-11.3-13.16-22.29-10.8-3.74.79-9.11,3.01-14.18,6.78-3.6,2.68-7.77,8.48-8.56,9.72-.66,1-2.17,3.9-2.82,5.11-.61-1.4-1.03-2.99-1.57-4.35-2.23-5.94-9.38-9.82-18.68-7.09-5.36,1.56-16,6.67-19.97,17.99-2.88,8.22-10.29,31.24-15.59,47.18-1.19,3.66-3.05,9.01-6.78,9.82-6.43,1.32-6.07-7.39-5.88-9.1.45-4.13,4.8-28,5.63-35.73.15-1.68.22-2.56.2-3.89-.13-9.42-7.67-12.52-10.09-13.23-2.21-.66-5.9-1.17-8.79-.95-3.09.36-9.81,1.96-14.2,5.41-3.04,2.4-6.72,7.41-8.5,11.68-.32-.64-.7-1.22-1.14-1.73-2.85-3.38-8.28-7.9-16.32-6.19-14.26,3.03-16.81,15.02-16.74,20.28.05,5.29,2.78,9.43,5.04,11.86,3.42,3.7,11.63,6.39,18.04-.24,1.31.66,2.13,3.01,2.13,3.01,1.46,3.75.28,14.76-7.74,24.87-4.63,5.83-10.13,10.83-16.85,11.38-5.38.43-8.95-3.48-10.48-7.54-1.1-2.9-.9-7.29-.08-13.16.71-4.48,17.1-103.57,17.29-105.76.89-5.44-.61-10.98-4.15-14.22-4-3.46-13.91-1.7-16.98-.54-8.07,3.34-11.76,6.58-14.49,12.64,0,0-.74,1.45-.17,2.21.48.58.55.36.8.66.27.32,4.44-2.95,7.04-3.81.89-.29,1.69-.42,2.38-.51.94.02,5.19-.07,4.64,3.88-.34,2.5-.52,4.38-.93,6.71-1.87,10.24-11.14,78.63-14.64,85.19-2.33,4.37-16.19,36.09-17.79,38.9-3.99,7.03-9.27,4.17-10.15,2.98-1-1.35-1.23-3.2-.95-4.96,1.22-6.88,4.83-34.92,5.36-38.64,1.41-9.65-2.2-18.4-20.89-16.98-1.57.13-3.88.52-7.93,1.24-.63-.07-1.18-.6-1.46-1.13-.3-.53-.95-3.46-1.07-4.14-.12-.67-.58-2.34-1.55-2.75-.83-.32-3.92-.58-6.33.3-1.62.61-1.75,2.66-1.81,2.88-.17,1.01-.5,3.29-.84,5.12-1.52,9.43-9.67,42.6-12.36,49.89-1.17,3.84-6.42,17.76-7.04,18.89-1.6,2.45-2.77,4.41-5.24,5.73-1.62.65-3.25.69-4.55-.06-2.09-1.09-2.5-3.69-2.21-6.03,2.87-19.13,6.09-37.59,8.88-56.5.14-.72.69-3.89-2.14-3.26-3.05.64-12.63,2.68-12.63,2.68,0,0-3.89.65-5.87,1.62-.92.92-1.81,1.81-2.16,3.6-2.01,11.51-3.35,22.64-5.11,34.28-1.09,5.09-1.42,10.87-2.63,15.87-.31.89-.89,3.94-2.32,6.32-1.46,2.37-7.1,8.69-12.24,10.33-3.43,1.08-4.7,1.12-7.18.08-3.99-1.48-3.42-7.86-3.21-9.49,2.09-14.5,3.9-26.63,6-41.05.25-2.21-.29-3.86-.78-5.22-1.27-3.61-7.11-6.51-11.14-6.94-2.41-.2-5.04.03-7.43.54-4.51,1.17-8.61,3.21-12.01,5.34-4.18,2.87-7.81,7.64-8.06,9.18-.27,1.55-.04,3.18,1.38,3.7,1.33.48,4.51-3.5,6.7-5.01,2.19-1.5,5.18-1.52,6.33-1.15,1.08.36,2.06.69,2.06,3.19.03,2.49-4.91,32.78-5.69,37.92-.76,5.16-2.62,15.35,3.85,21.94,1.65,1.69,5.91,4.31,11.05,4.73,9.39.76,17.82-4.76,20.24-6.34,4.02-2.63,12.06-11.21,13.86-13.67.62,1,4.09,6.93,9.89,9.03,3.99,1.45,11,.57,15.05-1.16,1.3-.56,4.23-1.99,6.73-4.36,2.52-2.38,8.79-10.81,11.09-16.17,2.44-5.7,4.56-11.59,6.25-17.73,2.18-7.29,8.46-30.93,9.73-35.74.33-1.06,1.58-1.4,2.54-1.8,2.52-.95,6.52-.98,8.87,1.41,2.13,1.91,1.51,4.8,1.16,7.44-.54,3.35-4.93,32.49-5.37,37.83-.21,2.17,0,5.12.6,6.98,1.34,3.21,2.93,5.94,6.25,7.81,3.31,1.85,7.17,3.18,15,1.42,17.4-3.87,24-28.01,27.25-34.71.24,1.2.24,2.41.8,4.14.9,2.65,5.27,17.17,20.14,18.61,6.69.66,11.03-.6,16.8-2.69,18.9-6.81,25.66-30.72,27.22-36.51,1.56-5.79,3.74-17.32,2.39-29.42,4.84-11.75,13.25-10.43,13.25-10.43,1.13.11,2.86,1.08,3.64,3.42.39,1.15.39,2.11.37,3.35-1.71,13.4-5.55,32.68-5.8,35.35-.39,3.92-.46,14.06,5.39,19.06,3.6,3.06,13.08,6.41,22.52,2.01,12.76-5.92,15.95-18.68,16.84-21.01,2.02-5.15,13.41-41.19,14.11-43.11,1.76-5,4.43-10.03,7.4-10.85,2.64-.74,3.64.74,3.99,1.84.57,1.83.4,3.82.17,5.56-2.48,15.66-7.02,42.68-7.24,44.27-.24,1.6-1.97,12.89-2.1,13.49-.25,1.48.3,1.87,1.38,1.64,1.02-.23,13.45-2.85,15.32-3.26,1.84-.38,5.48-.87,5.83-2.76,2.43-15.72,7.28-44.85,7.65-46.71.36-1.87,4.55-15.04,12.01-19.83,1.46-.92,3.78-1.9,4.96-2.04,1.22-.15,3.25-.21,4.82.8,2.99,1.43,3.89,4.74,3.82,7.86-1.7,12.89-5.38,38.07-5.4,38.8-.04.74-.42,3.28.06,6.13.51,2.84,2.88,10.8,15.73,7.98,1.81-.4,8.61-2.54,12.95-5.84,5.15-4.09,10.29-9.53,10.16-16.53,0-.71-1.01-.4-1.53-.81"/><path d="M450.99,48.71c-.14.66-.98,5.02-4.3,7.55-1.21.99-2.71,1.82-4.11,2.52-1.43.64-2.41.94-4.58,1.23-2.14.27-3.93.12-6.02-.57-2.53-.84-6.03-3.49-7.21-5.22-1.12-1.59-1.96-4.23-2.05-5.42-.25-2.62.03-5.71,1.05-7.65,1.01-1.95,3.16-4.96,6.62-7,5.67-3.2,11.9-1.29,13.08-.84,1.16.46,3.86,2.53,5.3,4.55,1.14,1.62,2.31,4.95,2.41,7.42.03.1-.03,2.76-.19,3.44"/><path d="M252.19,36.44c-3.38,2.77-11.82,9.71-29.38,14.73-26.58,7.59-116.32,16.85-129.84,19.88-19.61,4.14-39.65,17.03-44.15,32.93-.92,2.9-3.19,10.05-1.1,20.12,5.17,24.55,25.73,28.65,33.89,26.95,18.65-3.95,22.24-23.06,19.57-34.42-2.95-12.54-13.82-21.63-22.34-20.35-3.42.57,2.83-4.23,3.78-4.12,4.68-.28,17.68,3.34,24.26,11.11,5.18,6.14,8.01,17.49,7.88,21.68-.12,3.95-.55,23.48-17.82,34.91-5.13,3.39-21.8,10.83-38.96,5.79-7.44-2.22-18.78-7.25-27.32-22.95-2.8-5.13-5.11-15.6-4.43-23.82,1.8-21.33,16.11-36.6,25.97-44.06,20.63-15.57,43.74-22.35,69.72-27.73,6.7-1.53,23.32-4.71,31.13-5.89,12.39-1.69,41.96-6.94,43.84-7.45,31.69-6.75,41.28-13.98,46.31-17.1,5.02-3.15,13.98-11.54,15.89-13.7.94-.99,3.16-3.97,5.15-2.55,1.52,1.03,1.91,2.73,1.33,6.24-.4,2.45-2.15,20.57-13.38,29.82"/><path d="M90.2,204.1c-.76.65-3.67-.69-6.34-1.66-1-.31-2.52-.88-3.83-1.15-11.87-2.43-23.89-2.16-36.66.66-12.72,2.58-28.48,16.02-28.08,28.87.11,3.39.75,14.43,13.86,21.33,14.08,7.45,34.88-.6,44.82-6.55,9.93-5.93,14.79-13,19.42-19.62,4.65-6.68,14.44-31.81,16.64-37.89,2.2-6.08,17.81-51.48,23.39-63.2,4.14-11.12,12.24-23.27,20.49-32.83,8.13-9.43,25.33-21.88,34.31-25.15,6.48-2.61,14.02-4.41,19.99-5.18,5.98-.75,5.43,3.09,5.08,3.46-2.96.92-5.89,2.05-8.49,2.94-7.84,2.88-18.92,9.97-26.48,18.88-10.8,11.72-17.56,36.68-19.7,43.6-1.87,5.76-9.64,35.44-11.01,39.75-1.35,4.3-16.57,71.01-48.5,91.77-22.28,14.47-48,16.23-63.08,12.87-13.82-3.09-20.5-8.18-27.41-15.88-6.91-7.71-13.05-26.93-4.37-42.19,7.74-13.61,22.66-21.69,36.85-25.21,26.16-6.48,46.99,2.98,47.4,4.57l1.68,7.82"/></g></symbol>
+</svg>
+
+<header class="top">
+  <a class="brand" href="../" aria-label="Turbin, to the main site"><svg viewBox="0 0 565.59 276.45"><use href="#logo"/></svg><span>Transfer</span></a>
+  <nav aria-label="Transfer">
+    <a href="./" data-nav="send">Send files</a>
+    <a href="../#contact">Contact</a>
+  </nav>
+</header>
+
+<main id="main">
+
+  <!-- ================= SEND (customers + crew) ================= -->
+  <section id="view-send">
+    <div class="intro">
+      <div>
+        <p class="eyebrow" id="eyebrow">File transfer</p>
+        <h1 class="title" id="title">Send files<br>to Turbin</h1>
+        <p class="copy" id="lead">Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.</p>
+      </div>
+      <div class="modes" role="group" aria-label="Who are you?">
+        <button type="button" data-mode="client" aria-pressed="true">Client</button>
+        <button type="button" data-mode="crew" aria-pressed="false">Turbin crew</button>
+      </div>
+    </div>
+
+    <div class="grid">
+      <!-- left: files -->
+      <div>
+        <div class="drop" id="drop">
+          <p class="drop-big">Drop files<br>or folders</p>
+          <p class="drop-sub">Anything goes — print originals, raw footage, hundreds of files at once.</p>
+          <p class="drop-or">or</p>
+          <div class="picks">
+            <button type="button" class="pick" id="pick-files">Choose files</button>
+            <button type="button" class="pick" id="pick-folder">Choose folder</button>
+          </div>
+          <input type="file" id="in-files" multiple>
+          <input type="file" id="in-folder" webkitdirectory multiple>
+        </div>
+
+        <div class="files" id="files" hidden>
+          <div class="files-head"><span id="files-count">0 files</span><button type="button" id="clear">Remove all</button></div>
+          <ul class="list" id="list"></ul>
+        </div>
+      </div>
+
+      <!-- right: details / progress / done -->
+      <div>
+        <form class="panel" id="form" novalidate>
+          <h2 id="form-title">Your details</h2>
+
+          <!-- client fields -->
+          <div data-for="client">
+            <div class="row2">
+              <label class="field"><span>Name</span><input name="name" autocomplete="name" placeholder="Your name"></label>
+              <label class="field"><span>Company</span><input name="company" autocomplete="organization" placeholder="Company"></label>
+            </div>
+            <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" placeholder="you@company.com"></label>
+            <label class="field"><span>Send to</span>
+              <select name="to"><option value="">Who at Turbin?</option></select>
+            </label>
+            <label class="field"><span>Project <i>(optional)</i></span><input name="project" placeholder="e.g. Spring campaign"></label>
+          </div>
+
+          <!-- crew fields -->
+          <div data-for="crew" hidden>
+            <div class="field" id="who-field"><span>From</span><div class="who" id="who" role="group" aria-label="From"></div></div>
+            <label class="field"><span>Delivery name</span><input name="title" placeholder="e.g. Agria – final print files"></label>
+            <div class="row2">
+              <label class="field"><span>Client email <i>(optional)</i></span><input name="client" type="email" placeholder="We’ll email them the link"></label>
+              <label class="field"><span>Link expires</span>
+                <select name="expires"><option value="7">After 7 days</option><option value="14" selected>After 14 days</option><option value="30">After 30 days</option></select>
+              </label>
+            </div>
+          </div>
+
+          <label class="field"><span>Message <i>(optional)</i></span><textarea name="message" rows="3" placeholder="Anything we should know?"></textarea></label>
+
+          <div class="actions">
+            <span class="sum" id="sum"><b>0</b> files · <b>0 B</b></span>
+            <button type="submit" class="btn primary" id="go" disabled>Send files →</button>
+          </div>
+          <p class="fine" id="fine">Files are delivered privately to Turbin. Nothing you send here gets a public link.</p>
+        </form>
+
+        <div class="panel" id="progress" hidden aria-live="polite">
+          <h2 id="prog-title">Sending</h2>
+          <p class="big-pct"><span id="pct">0</span><small>%</small></p>
+          <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+          <div class="stats"><span><b id="sent">0 B</b> of <span id="total">0 B</span></span><span id="speed">—</span><span id="eta">—</span></div>
+          <p class="status-line" id="status">Preparing…</p>
+          <div class="actions">
+            <button type="button" class="btn ghost" id="pause">Pause</button>
+            <button type="button" class="btn ghost" id="cancel">Cancel</button>
+          </div>
+          <p class="fine">You can keep working in other tabs. If the connection drops, the upload picks up where it left off.</p>
+        </div>
+
+        <div class="panel" id="done" hidden>
+          <div class="done-mark"><svg viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2.4"><path d="M4 12.5l5 5L20 6.5"/></svg></div>
+          <h2 id="done-title">Delivered</h2>
+          <p class="copy" id="done-text" style="margin-top:0"></p>
+          <div id="done-link" hidden>
+            <label class="field" style="margin:22px 0 0"><span>Link for the client</span></label>
+            <div class="linkbox"><input id="link" readonly aria-label="Download link"><button type="button" id="copy">Copy</button></div>
+          </div>
+          <div class="actions">
+            <button type="button" class="btn" id="again">Send more files</button>
+            <a class="btn ghost" id="preview" href="#" hidden>Open the client page ↗</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- crew history -->
+    <section class="history" id="history" hidden>
+      <h2>History <small id="hist-who"></small></h2>
+      <table class="h-table">
+        <thead><tr><th>Delivery</th><th class="hide-s">Sent</th><th class="hide-s">Size</th><th>Expires</th><th>Downloaded</th></tr></thead>
+        <tbody id="hist"></tbody>
+      </table>
+      <p class="h-empty" id="hist-empty" hidden>Nothing sent yet.</p>
+    </section>
+  </section>
+
+  <!-- ================= DOWNLOAD (client receives) ================= -->
+  <section id="view-get" hidden>
+    <p class="eyebrow">Files from Turbin</p>
+    <h1 class="title" id="g-title"></h1>
+    <dl class="dl-meta">
+      <div><dt>From</dt><dd id="g-from"></dd></div>
+      <div><dt>Files</dt><dd id="g-count"></dd></div>
+      <div><dt>Size</dt><dd id="g-size"></dd></div>
+      <div><dt>Available until</dt><dd id="g-exp"></dd></div>
+    </dl>
+    <p class="note" id="g-note" hidden></p>
+    <div class="dl-list">
+      <div class="dl-top">
+        <span class="sum" id="g-sum"></span>
+        <button type="button" class="btn primary" id="g-all">Download all (.zip)</button>
+      </div>
+      <ul class="list" id="g-list"></ul>
+    </div>
+  </section>
+
+  <section id="view-gone" hidden>
+    <p class="eyebrow">Files from Turbin</p>
+    <h1 class="title">This link<br>has expired</h1>
+    <p class="copy">The files are no longer available here. Get in touch with the person who sent them and we’ll send a new link.</p>
+    <div class="actions" style="margin-top:28px"><a class="btn" href="mailto:info@turbin.se">info@turbin.se</a></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>© Turbin AB · Klevgränd 2 · Stockholm</span>
+  <a href="../">turbin.se ↗</a>
+</footer>
+
+<div class="demo" id="demo">Preview — nothing is actually uploaded</div>
+
+<script>
+'use strict';
+const $ = s => document.querySelector(s);
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ------------------------------------------------------------------
+   Config. The real page gets the crew list and deliveries from the PHP backend;
+   until then everything below is local demo data (DEMO = true).
+------------------------------------------------------------------- */
+const DEMO = true;
+const CREW = [
+  { id: 'claes', name: 'Claes' }, { id: 'elon', name: 'Elon' }, { id: 'fredric', name: 'Fredric' },
+  { id: 'kicki', name: 'Kicki' }, { id: 'ola', name: 'Ola' }, { id: 'patrik', name: 'Patrik' },
+  { id: 'peter', name: 'Peter' }, { id: 'roger', name: 'Roger' }, { id: 'thomas', name: 'Thomas' },
+];
+const DAY = 864e5;
+const SAMPLE = {
+  demo: { title: 'Agria – final print files', from: 'Fredric', sent: Date.now() - 2 * DAY, expires: Date.now() + 12 * DAY,
+    note: 'Hi! Here are the final print files for the spring campaign.\nPDF/X-4, 3 mm bleed. Shout if anything looks off.',
+    files: [
+      ['Agria_Vår_A4_210x297.pdf', 48.2e6], ['Agria_Vår_70x100_affisch.pdf', 312.6e6], ['Agria_Vår_Annons_Helsida.pdf', 21.4e6],
+      ['Bilder/Agria_hund_01.tif', 182.3e6], ['Bilder/Agria_hund_02.tif', 176.9e6], ['Bilder/Agria_katt_01.tif', 168.1e6],
+      ['Film/Agria_Vår_15s_1920x1080.mov', 2.41e9],
+    ] },
+  old: { title: 'Peab – annual report proofs', from: 'Thomas', sent: Date.now() - 40 * DAY, expires: Date.now() - 10 * DAY, files: [] },
+};
+
+/* ---------- helpers ---------- */
+const fmt = b => { const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1000 && i < u.length - 1) { b /= 1000; i++; } return (i ? b.toFixed(b < 10 ? 1 : 0) : b) + ' ' + u[i]; };
+const fmtDate = t => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtTime = s => !isFinite(s) ? '—' : s < 60 ? Math.ceil(s) + ' s left' : s < 3600 ? Math.ceil(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(9)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
+const store = {
+  get(k, d) { try { return JSON.parse(localStorage.getItem('tt-' + k)) ?? d; } catch { return d; } },
+  set(k, v) { try { localStorage.setItem('tt-' + k, JSON.stringify(v)); } catch {} },
+};
+let toastT;
+const toast = msg => { const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2200); };
+
+/* ------------------------------------------------------------------
+   Routing: ?d=<id> shows a delivery, otherwise the send page
+------------------------------------------------------------------- */
+const params = new URLSearchParams(location.search);
+const dId = params.get('d');
+if (!DEMO) $('#demo').hidden = true;
+if (dId) showDelivery(dId); else initSend();
+
+/* ================================================================== */
+function showDelivery(id) {
+  $('#view-send').hidden = true;
+  const all = { ...SAMPLE, ...store.get('deliveries', {}) };
+  const d = all[id];
+  if (!d || d.expires < Date.now()) { $('#view-gone').hidden = false; document.title = 'Link expired · Turbin Transfer'; return; }
+  $('#view-get').hidden = false;
+  document.title = d.title + ' · Turbin Transfer';
+  const total = d.files.reduce((a, f) => a + f[1], 0);
+  $('#g-title').textContent = d.title;
+  $('#g-from').textContent = d.from + ', Turbin';
+  $('#g-count').textContent = d.files.length;
+  $('#g-size').textContent = fmt(total);
+  $('#g-exp').textContent = fmtDate(d.expires);
+  if (d.note) { $('#g-note').hidden = false; $('#g-note').textContent = d.note; }
+  $('#g-sum').innerHTML = `<b>${d.files.length}</b> files · <b>${fmt(total)}</b>`;
+  $('#g-list').innerHTML = d.files.map(([n, s], i) => {
+    const k = n.lastIndexOf('/');
+    return `<li><span class="f-name">${k > 0 ? `<small>${esc(n.slice(0, k + 1))}</small>` : ''}${esc(n.slice(k + 1))}</span><span class="f-size">${fmt(s)}</span><button type="button" class="btn ghost get" data-i="${i}">Download</button></li>`;
+  }).join('');
+  const fake = () => toast(DEMO ? 'Preview — the download starts here on the live page' : 'Starting download…');
+  $('#g-list').addEventListener('click', e => { if (e.target.closest('.get')) fake(); });
+  $('#g-all').addEventListener('click', fake);
+}
+
+/* ================================================================== */
+function initSend() {
+  const form = $('#form'), F = form.elements;
+  let mode = 'client', me = store.get('me', '');
+  let files = [];             // { file, path, size, sent, el }
+  let job = null;             // running upload
+
+  // crew list into the client's "send to" and the crew's "from"
+  F.to.insertAdjacentHTML('beforeend', CREW.map(c => `<option value="${c.id}">${c.name}</option>`).join(''));
+  $('#who').innerHTML = CREW.map(c => `<button type="button" data-id="${c.id}" aria-pressed="${c.id === me}">${c.name}</button>`).join('');
+  $('#who').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    me = b.dataset.id; store.set('me', me);
+    $('#who').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', x === b));
+    $('#who-field').classList.remove('err');
+    renderHistory();
+  });
+  // a link like ?to=kicki preselects the recipient
+  const pre = params.get('to'); if (pre && CREW.some(c => c.id === pre)) F.to.value = pre;
+
+  /* ---------- mode: client / crew ---------- */
+  const COPY = {
+    client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: 'Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.',
+      form: 'Your details', go: 'Send files →', fine: 'Files are delivered privately to Turbin. Nothing you send here gets a public link.' },
+    crew: { eyebrow: 'Turbin crew', title: 'Deliver files<br>to a client', lead: 'Upload, get a link, send it to the client. The link stops working when it expires.',
+      form: 'Delivery', go: 'Upload & get link →', fine: 'Only for files from Turbin to our clients. The live page asks for a crew login.' },
+  };
+  function setMode(m) {
+    mode = m;
+    document.querySelectorAll('[data-mode]').forEach(b => b.setAttribute('aria-pressed', b.dataset.mode === m));
+    document.querySelectorAll('[data-for]').forEach(el => el.hidden = el.dataset.for !== m);
+    const c = COPY[m];
+    $('#eyebrow').textContent = c.eyebrow; $('#title').innerHTML = c.title; $('#lead').textContent = c.lead;
+    $('#form-title').textContent = c.form; $('#go').textContent = c.go; $('#fine').textContent = c.fine;
+    $('#history').hidden = m !== 'crew';
+    form.querySelectorAll('.err').forEach(el => el.classList.remove('err'));
+    if (m === 'crew') renderHistory();
+    store.set('mode', m);
+    if (location.hash !== (m === 'crew' ? '#crew' : '')) history.replaceState(null, '', m === 'crew' ? '#crew' : location.pathname + location.search);
+  }
+  document.querySelectorAll('[data-mode]').forEach(b => b.addEventListener('click', () => { if (!job) setMode(b.dataset.mode); }));
+  setMode(location.hash === '#crew' ? 'crew' : 'client');
+
+  /* ---------- adding files: pickers, drag and drop (files and folders) ---------- */
+  $('#pick-files').onclick = () => $('#in-files').click();
+  $('#pick-folder').onclick = () => $('#in-folder').click();
+  $('#in-files').onchange = e => { add([...e.target.files].map(f => [f, f.name])); e.target.value = ''; };
+  $('#in-folder').onchange = e => { add([...e.target.files].map(f => [f, f.webkitRelativePath || f.name])); e.target.value = ''; };
+
+  const drop = $('#drop');
+  let depth = 0;
+  const canDrop = e => !job && [...(e.dataTransfer?.types || [])].includes('Files');
+  addEventListener('dragenter', e => { if (!canDrop(e)) return; e.preventDefault(); depth++; drop.classList.add('over'); });
+  addEventListener('dragleave', e => { if (!canDrop(e)) return; if (--depth <= 0) { depth = 0; drop.classList.remove('over'); } });
+  addEventListener('dragover', e => { if (canDrop(e)) e.preventDefault(); });
+  addEventListener('drop', async e => {
+    if (!canDrop(e)) return;
+    e.preventDefault(); depth = 0; drop.classList.remove('over');
+    const items = [...e.dataTransfer.items].filter(i => i.kind === 'file');
+    const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+    if (!entries.length) return add([...e.dataTransfer.files].map(f => [f, f.name]));
+    const out = [];
+    await Promise.all(entries.map(en => walk(en, '', out)));
+    add(out);
+  });
+  // read a dropped folder recursively (readEntries returns at most 100 at a time)
+  async function walk(entry, base, out) {
+    if (entry.isFile) {
+      await new Promise(r => entry.file(f => { out.push([f, base + f.name]); r(); }, r));
+    } else if (entry.isDirectory) {
+      const reader = entry.createReader();
+      let batch;
+      do {
+        batch = await new Promise(r => reader.readEntries(r, () => r([])));
+        await Promise.all(batch.map(en => walk(en, base + entry.name + '/', out)));
+      } while (batch.length);
+    }
+  }
+
+  const JUNK = /(^|\/)(\.DS_Store|Thumbs\.db|desktop\.ini|\._[^/]*)$/i;
+  function add(list) {
+    const have = new Set(files.map(f => f.path + '|' + f.size));
+    let n = 0;
+    for (const [file, path] of list) {
+      if (JUNK.test(path) || have.has(path + '|' + file.size)) continue;
+      files.push({ file, path, size: file.size, sent: 0 }); have.add(path + '|' + file.size); n++;
+    }
+    renderFiles();
+    if (n) toast(`${n} file${n > 1 ? 's' : ''} added`);
+  }
+
+  const list = $('#list');
+  function renderFiles() {
+    $('#files').hidden = !files.length;
+    const total = files.reduce((a, f) => a + f.size, 0);
+    $('#files-count').textContent = `${files.length} file${files.length === 1 ? '' : 's'} · ${fmt(total)}`;
+    $('#sum').innerHTML = `<b>${files.length}</b> file${files.length === 1 ? '' : 's'} · <b>${fmt(total)}</b>`;
+    $('#go').disabled = !files.length;
+    list.innerHTML = files.map((f, i) => {
+      const k = f.path.lastIndexOf('/');
+      return `<li data-i="${i}"><span class="f-name" title="${esc(f.path)}">${k > 0 ? `<small>${esc(f.path.slice(0, k + 1))}</small>` : ''}${esc(f.path.slice(k + 1))}</span><span class="f-size">${fmt(f.size)}</span><span class="f-state"><button type="button" class="x" aria-label="Remove ${esc(f.path)}">×</button></span><i class="bar"></i></li>`;
+    }).join('');
+    files.forEach((f, i) => f.el = list.children[i]);
+  }
+  list.addEventListener('click', e => {
+    const x = e.target.closest('.x'); if (!x || job) return;
+    files.splice(+x.closest('li').dataset.i, 1); renderFiles();
+  });
+  $('#clear').onclick = () => { if (!job) { files = []; renderFiles(); } };
+
+  /* ---------- validation + start ---------- */
+  form.addEventListener('input', e => e.target.closest('.field')?.classList.remove('err'));
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    if (!files.length) return;
+    const bad = [];
+    const need = (name, ok) => { if (!ok) bad.push(F[name].closest('.field')); };
+    if (mode === 'client') {
+      need('name', F.name.value.trim());
+      need('email', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(F.email.value.trim()));
+      need('to', F.to.value);
+    } else {
+      if (!me) bad.push($('#who-field'));
+      need('title', F.title.value.trim());
+      if (F.client.value.trim()) need('client', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(F.client.value.trim()));
+    }
+    bad.forEach(f => f.classList.add('err'));
+    if (bad.length) { (bad[0].querySelector('input,select,button')).focus(); toast('Please fill in the marked fields'); return; }
+    start();
+  });
+
+  /* ------------------------------------------------------------------
+     Upload. DEMO simulates a fast connection with a dropped connection along the way.
+     Live: ask PHP for a resumable session per file, then PUT chunks straight to Google Drive,
+     three files at a time, resuming from the last confirmed byte after a network error.
+  ------------------------------------------------------------------- */
+  function start() {
+    const total = files.reduce((a, f) => a + f.size, 0);
+    job = { total, paused: false, cancelled: false, t0: performance.now(), hist: [], dropped: false };
+    files.forEach(f => { f.sent = 0; f.el.querySelector('.f-state').textContent = '—'; });
+    form.hidden = true; $('#progress').hidden = false; $('#done').hidden = true;
+    $('#prog-title').textContent = mode === 'crew' ? 'Uploading' : 'Sending';
+    $('#total').textContent = fmt(total);
+    $('#pause').textContent = 'Pause';
+    document.querySelectorAll('[data-mode]').forEach(b => b.disabled = true);
+    $('#status').className = 'status-line';
+    $('#status').textContent = `Sending ${files.length} file${files.length > 1 ? 's' : ''}…`;
+    runDemo();
+  }
+
+  function runDemo() {
+    // ~60 MB/s, scaled so even huge sends finish within ~12 s in the preview
+    const rate = Math.max(60e6, job.total / 12);
+    const PAR = 3;
+    let last = performance.now();
+    const tick = now => {
+      if (!job || job.cancelled) return;
+      const dt = Math.min(.1, (now - last) / 1000); last = now;
+      if (!job.paused && !job.offline) {
+        const active = files.filter(f => f.sent < f.size).slice(0, PAR);
+        const per = rate * dt / Math.max(1, active.length);
+        active.forEach(f => { f.sent = Math.min(f.size, f.sent + per * (0.7 + Math.random() * 0.6)); });
+        // pretend the connection drops once around 40 %, then resumes
+        const done = files.reduce((a, f) => a + f.sent, 0);
+        if (!job.dropped && done / job.total > .4 && job.total > 0) {
+          job.dropped = true; job.offline = true;
+          $('#status').className = 'status-line warn';
+          $('#status').textContent = 'Connection lost — waiting to resume…';
+          setTimeout(() => { if (!job) return; job.offline = false; $('#status').className = 'status-line'; $('#status').textContent = 'Back online — resumed where it left off.'; last = performance.now(); }, 1800);
+        }
+      }
+      paint(now);
+      if (files.every(f => f.sent >= f.size)) return finish();
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }
+
+  function paint(now) {
+    const sent = files.reduce((a, f) => a + f.sent, 0);
+    const p = job.total ? sent / job.total : 1;
+    $('#pct').textContent = Math.floor(p * 100);
+    $('#meter').style.width = (p * 100) + '%';
+    $('#sent').textContent = fmt(sent);
+    job.hist.push([now, sent]); while (job.hist.length && now - job.hist[0][0] > 3000) job.hist.shift();
+    const [t0, s0] = job.hist[0], bps = now > t0 ? (sent - s0) / ((now - t0) / 1000) : 0;
+    $('#speed').textContent = job.paused ? 'Paused' : job.offline ? 'Offline' : bps > 0 ? fmt(bps) + '/s' : '—';
+    $('#eta').textContent = bps > 0 && !job.paused && !job.offline ? fmtTime((job.total - sent) / bps) : '—';
+    files.forEach(f => {
+      if (!f.el) return;
+      const q = f.size ? f.sent / f.size : 1;
+      f.el.querySelector('.bar').style.width = (q * 100) + '%';
+      const st = f.el.querySelector('.f-state');
+      if (q >= 1) { if (!f.el.classList.contains('done')) { f.el.classList.add('done'); st.textContent = 'Done'; } }
+      else if (f.sent > 0) st.textContent = Math.floor(q * 100) + '%';
+    });
+  }
+
+  $('#pause').onclick = () => {
+    if (!job) return;
+    job.paused = !job.paused;
+    $('#pause').textContent = job.paused ? 'Resume' : 'Pause';
+    $('#status').textContent = job.paused ? 'Paused. Resume whenever you like.' : 'Resumed.';
+  };
+  $('#cancel').onclick = () => {
+    if (!job || !confirm('Cancel the upload? Files already sent will be removed.')) return;
+    job.cancelled = true; job = null; reset(true);
+  };
+  addEventListener('beforeunload', e => { if (job) { e.preventDefault(); e.returnValue = ''; } });
+
+  function finish() {
+    const total = job.total, n = files.length;
+    job = null;
+    document.querySelectorAll('[data-mode]').forEach(b => b.disabled = false);
+    $('#progress').hidden = true; $('#done').hidden = false;
+    $('#preview').hidden = true; $('#done-link').hidden = true;
+    if (mode === 'client') {
+      const to = CREW.find(c => c.id === F.to.value)?.name || 'Turbin';
+      $('#done-title').textContent = 'Delivered';
+      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) sent to ${to} at Turbin. A receipt is on its way to ${F.email.value.trim()}.`;
+    } else {
+      const id = rid(), days = +F.expires.value;
+      const d = { title: F.title.value.trim(), from: CREW.find(c => c.id === me).name, by: me, sent: Date.now(), expires: Date.now() + days * DAY,
+        note: F.message.value.trim(), files: files.map(f => [f.path, f.size]), downloaded: false };
+      const all = store.get('deliveries', {}); all[id] = d; store.set('deliveries', all);
+      const url = new URL('?d=' + id, location.href.split('#')[0].split('?')[0]).href;
+      $('#done-title').textContent = 'Ready to share';
+      $('#done-text').textContent = `${n} file${n > 1 ? 's' : ''} (${fmt(total)}) uploaded. The link works until ${fmtDate(d.expires)}.` + (F.client.value.trim() ? ` We’ve emailed it to ${F.client.value.trim()}.` : '');
+      $('#done-link').hidden = false; $('#link').value = url;
+      $('#preview').hidden = false; $('#preview').href = url; $('#preview').target = '_blank';
+      renderHistory();
+    }
+    $('#done').querySelector('h2').focus?.();
+  }
+  $('#copy').onclick = async () => {
+    const v = $('#link').value;
+    try { await navigator.clipboard.writeText(v); } catch { $('#link').select(); document.execCommand('copy'); }
+    toast('Link copied');
+  };
+  $('#link').onclick = e => e.target.select();
+  $('#again').onclick = () => reset(false);
+
+  function reset(keepFiles) {
+    if (!keepFiles) { files = []; form.reset(); F.expires.value = '14'; if (pre) F.to.value = pre; }
+    files.forEach(f => f.sent = 0);
+    renderFiles();
+    document.querySelectorAll('[data-mode]').forEach(b => b.disabled = false);
+    form.hidden = false; $('#progress').hidden = true; $('#done').hidden = true;
+  }
+
+  /* ---------- crew history ---------- */
+  function renderHistory() {
+    const name = CREW.find(c => c.id === me)?.name;
+    $('#hist-who').textContent = name ? name + '’s deliveries' : 'choose who you are above';
+    const mine = Object.entries({ ...SAMPLE, ...store.get('deliveries', {}) })
+      .filter(([, d]) => name && (d.by === me || d.from === name))
+      .sort((a, b) => b[1].sent - a[1].sent);
+    $('#hist-empty').hidden = !!mine.length;
+    $('#hist').innerHTML = mine.map(([id, d]) => {
+      const size = d.files.reduce((a, f) => a + f[1], 0), gone = d.expires < Date.now();
+      return `<tr><td><a href="?d=${id}" target="_blank">${esc(d.title)}</a></td><td class="m hide-s">${fmtDate(d.sent)}</td><td class="m hide-s">${d.files.length ? fmt(size) : '—'}</td>
+        <td class="m">${gone ? '<span class="tag old">Expired</span>' : fmtDate(d.expires)}</td>
+        <td>${d.downloaded || id === 'demo' ? '<span class="tag yes">Yes</span>' : '<span class="tag">Not yet</span>'}</td></tr>`;
+    }).join('');
+  }
+}
+
+/* ---------- cursor: the yellow dot follows the mouse; its shape says what is under it ---------- */
+(() => {
+  if (!matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+  const dot = $('#dot');
+  document.documentElement.classList.add('has-dot');
+  let under = null, down = false;
+  const mode = () => {
+    const t = under;
+    const drag = !!$('#drop')?.classList.contains('over');
+    const link = t && t.closest && t.closest('a,button,select,label,[role=button]');
+    dot.classList.toggle('press', down && !drag);
+    dot.classList.toggle('link', !down && !!link && !drag);
+    dot.classList.toggle('grab', drag);
+  };
+  addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    dot.style.transform = `translate3d(${e.clientX}px,${e.clientY}px,0)`;
+    dot.classList.add('on'); under = e.target; mode();
+  }, { passive: true });
+  addEventListener('dragover', e => { dot.style.transform = `translate3d(${e.clientX}px,${e.clientY}px,0)`; dot.classList.add('on'); mode(); });
+  addEventListener('drop', () => setTimeout(mode));
+  addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { down = true; mode(); } });
+  addEventListener('pointerup', () => { down = false; mode(); });
+  document.documentElement.addEventListener('mouseleave', () => dot.classList.remove('on'));
+  addEventListener('blur', () => dot.classList.remove('on'));
+})();
+</script>
+</body>
+</html>
