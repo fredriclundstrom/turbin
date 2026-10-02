@@ -1,5 +1,0 @@
-# Turbin Transfer API: only index.php answers; settings, keys and working files are never served
-Options -Indexes
-<FilesMatch "^(?!index\.php$)">
-  Require all denied
-</FilesMatch>
