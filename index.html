@@ -44,14 +44,16 @@
      (the script reads the picture behind each item and sets .on-light) — never a grey in between */
   .top{position:fixed;inset:0 0 auto 0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:18px clamp(18px,3vw,36px);pointer-events:none;
     color:#fff}
-  .top .brand.on-light,.top .brand.on-light span,.top nav a.on-light{color:#000}
+  .top .brand.on-light,.top .brand.on-light span,.top nav a.on-light,.top nav .sep.on-light{color:#000}
   .top > *{pointer-events:auto}
   .brand{display:flex;align-items:baseline;gap:14px;text-decoration:none}
   .brand b{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.08em;text-transform:uppercase}
   .brand span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fff}
-  .top nav{display:flex;gap:22px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .top nav{display:flex;align-items:baseline;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
   .top nav a{text-decoration:none;color:#fff;transition:opacity .2s}
   .top nav a:hover{opacity:.6}
+  /* a mid dot between the links, spaced like the one in the name on the left */
+  .top nav .sep{margin:0 .6em;color:#fff}
   .lang{display:flex;align-items:center;gap:9px;color:var(--mute)}
   .lang button{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;background:none;border:0;padding:0;color:var(--mute);cursor:pointer;transition:color .2s}
   .lang button.on{color:var(--ink)}
@@ -225,7 +227,7 @@
   .end .foot-meta{color:var(--end-mute)}
   .end .foot-meta a{color:var(--end-text)}
   /* the fixed header turns light while it sits over the dark close */
-  .top .brand,.top nav a,.lang,.lang button,.brand span{transition:color .3s}
+  .top .brand,.top nav a,.top nav .sep,.lang,.lang button,.brand span{transition:color .3s}
 
   /* ---------- find us: street map band ---------- */
   .where{position:relative;width:100vw;height:clamp(320px,28vw,480px);margin:clamp(64px,8vw,112px) 0 0 calc(50% - 50vw);border-block:1px solid var(--line);background:var(--ground-hi)}
@@ -312,7 +314,7 @@
 <header class="top">
   <a class="brand" href="#top" aria-label="Turbin AB, back to start"><span data-i18n="brand">Creative production agency · Stockholm</span></a>
   <nav>
-    <a href="#contact" data-i18n="contact">Contact</a>
+    <a href="transfer/">Transfer</a><span class="sep" aria-hidden="true">·</span><a href="#contact" data-i18n="contact">Contact</a>
   </nav>
 </header>
 
@@ -1082,7 +1084,7 @@ document.addEventListener('click', e => {
 // Header: white, or black over a light patch of photo/film. Each item (the name and Contact) looks at the
 // picture right behind it, averages its brightness, and flips with a little hysteresis so it never flickers
 (() => {
-  const items = [...document.querySelectorAll('.top .brand, .top nav a')];
+  const items = [...document.querySelectorAll('.top .brand, .top nav a, .top nav .sep')];
   const cv = document.createElement('canvas'); cv.width = 24; cv.height = 6;
   const cx = cv.getContext('2d', { willReadFrequently: true });
   const posters = new Map();
