@@ -1,0 +1,1315 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Turbin</title>
+<meta name="description" content="Turbin is a creative production agency in Stockholm. Still, motion and digital — let’s create something impactful together.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Turbin — creative production agency, Stockholm">
+<meta property="og:description" content="Still, motion and digital. Let’s create something impactful together.">
+<meta property="og:image" content="images/web/soffa2-1400.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  :root{
+    --ground:#000;
+    --ground-hi:#000;
+    --ground-lo:#141414;
+    --ink:#F2F2F0;
+    --ink-2:#B4B8BC;
+    --mute:#8C9196;
+    --line:rgba(242,242,240,.16);
+    --accent:#E5FF00;                        /* hi-vis yellow */
+    --on-accent:#000;                        /* text on an accent fill */
+    --on-accent-img:brightness(0);            /* client logos on an accent fill */
+    --logo-img:brightness(0) invert(1);       /* client logos on the black tiles */
+    --accent-soft:rgba(229,255,0,.3);
+    --glass:rgba(0,0,0,.74);
+    --display:"Anton","Oswald","Impact","Arial Narrow",sans-serif;
+    --body:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    color-scheme:dark;
+  }
+  *{box-sizing:border-box}
+  html{background:var(--ground)}
+  body{background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  :focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+
+  /* ---------- header ---------- */
+  /* the header is solid white, or solid black where it sits over a light part of a photo or the film
+     (the script reads the picture behind each item and sets .on-light) — never a grey in between */
+  .top{position:fixed;inset:0 0 auto 0;z-index:20;display:flex;justify-content:space-between;align-items:center;padding:18px clamp(18px,3vw,36px);pointer-events:none;
+    color:#fff}
+  .top .brand.on-light,.top .brand.on-light span,.top nav a.on-light{color:#000}
+  .top > *{pointer-events:auto}
+  .brand{display:flex;align-items:baseline;gap:14px;text-decoration:none}
+  .brand b{font-family:var(--display);font-weight:400;font-size:17px;letter-spacing:.08em;text-transform:uppercase}
+  .brand span{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#fff}
+  .top nav{display:flex;gap:22px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase}
+  .top nav a{text-decoration:none;color:#fff;transition:opacity .2s}
+  .top nav a:hover{opacity:.6}
+  .lang{display:flex;align-items:center;gap:9px;color:var(--mute)}
+  .lang button{font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;background:none;border:0;padding:0;color:var(--mute);cursor:pointer;transition:color .2s}
+  .lang button.on{color:var(--ink)}
+  .lang button:hover{color:var(--accent)}
+
+  /* ---------- cursor: a hi-vis yellow dot (mouse and trackpad only) ----------
+     It opens into a ring over links and buttons, and into a larger soft ring over things you can drag */
+  html.has-dot,html.has-dot *{cursor:none !important}
+  .dot{position:fixed;left:0;top:0;z-index:100;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--accent);
+    border:1.5px solid var(--accent);pointer-events:none;opacity:0;will-change:transform;
+    transition:width .25s cubic-bezier(.2,.7,.2,1),height .25s cubic-bezier(.2,.7,.2,1),margin .25s cubic-bezier(.2,.7,.2,1),background .2s,opacity .2s}
+  .dot.on{opacity:1}
+  .dot.link{width:40px;height:40px;margin:-20px 0 0 -20px;background:transparent}
+  .dot.grab{width:60px;height:60px;margin:-30px 0 0 -30px;background:rgba(229,255,0,.14)}
+  .dot.press{width:8px;height:8px;margin:-4px 0 0 -4px;background:var(--accent)}
+
+  /* ---------- scene ---------- */
+  .scene{position:relative;height:230vh}
+  .stage{position:sticky;top:0;height:100vh;height:100svh;overflow:hidden;
+    background:#000}
+  /* the 3D logo sits in front of the headline; clicks pass through to the buttons (grabbing is handled on the stage) */
+  #gl{position:absolute;inset:0;z-index:2;width:100%;height:100%;display:block;pointer-events:none}
+  .flat-logo{display:none;position:absolute;left:50%;top:42%;width:min(560px,78vw);transform:translate(-50%,-50%);color:var(--ink)}
+  .no3d .flat-logo{display:block}
+  .flat-film{display:none;position:absolute;left:50%;top:42%;width:min(760px,100vw);aspect-ratio:1;transform:translate(-50%,-50%);object-fit:cover}
+  .no3d.film .flat-film{display:block}
+  .no3d.film .flat-logo{display:none}
+  .no3d #gl{display:none}
+
+  .overlay{position:absolute;inset:0;z-index:1;pointer-events:none}
+  #lines{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+
+  /* chapter panels */
+  .panel{position:absolute;opacity:0;visibility:hidden;will-change:opacity,transform}
+  .panel.is-live{pointer-events:auto}
+  .eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);display:flex;gap:10px;align-items:center;margin:0 0 14px}
+  .eyebrow i{font-style:normal;color:var(--accent)}
+  .title{font-family:var(--display);font-weight:400;text-transform:uppercase;line-height:.9;letter-spacing:.005em;margin:0;text-wrap:balance}
+  .copy{color:var(--ink-2);font-size:clamp(15px,1.15vw,17.5px);line-height:1.6;max-width:36ch;margin:20px 0 0;text-wrap:pretty}
+
+  .p-center{left:50%;bottom:122px;transform:translate(-50%,var(--dy,0px));width:min(1100px,92vw);text-align:center}
+  .p-center .eyebrow{justify-content:center}
+  .p-together{opacity:1;visibility:visible;pointer-events:auto}
+  .p-together .title{font-size:clamp(56px,1.4vw + 48px,78px);line-height:1.04}
+  /* the one loud thing on the page: IMPACTFUL in hi-vis yellow */
+  .hi{font-style:normal;color:var(--accent)}
+  .cta{display:flex;justify-content:center;flex-wrap:wrap;gap:12px;margin-top:26px}
+  /* addresses and numbers in Inter; the mono is kept for the small uppercase labels */
+  .cta a{font-family:var(--body);font-size:14.5px;font-weight:500;letter-spacing:.01em;text-decoration:none;padding:14px 20px;border:1px solid var(--ink);color:var(--ink);transition:background .2s,color .2s,border-color .2s}
+  .cta a:first-child{background:var(--ink);color:var(--ground-hi)}
+  /* scroll cue under the buttons: a quiet hint that the page goes on (fades out once you scroll) */
+  .cue{position:absolute;left:50%;top:100%;margin-top:14px;transform:translateX(-50%);display:grid;place-items:center;width:44px;height:44px;color:var(--ink-2);transition:color .2s}
+  .cue:hover{color:var(--accent)}
+  .cue svg{width:20px;height:20px;animation:cue-bob 2.4s cubic-bezier(.45,0,.55,1) infinite}
+  @keyframes cue-bob{0%,100%{transform:translateY(-3px);opacity:.5}50%{transform:translateY(3px);opacity:1}}
+  .cta a:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+
+  /* HUD readouts */
+  .hud{position:absolute;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;line-height:1.7;color:var(--ink-2);opacity:0;white-space:nowrap;border-left:1px solid var(--accent);padding-left:10px}
+  .hud b{font-weight:500;color:var(--accent)}
+  .af{position:absolute;left:0;top:0;opacity:0;color:var(--ink-2)}
+  .af i{position:absolute;width:18px;height:18px;border:0 solid currentColor}
+  .af i:nth-child(1){left:0;top:0;border-left-width:1.5px;border-top-width:1.5px}
+  .af i:nth-child(2){right:0;top:0;border-right-width:1.5px;border-top-width:1.5px}
+  .af i:nth-child(3){left:0;bottom:0;border-left-width:1.5px;border-bottom-width:1.5px}
+  .af i:nth-child(4){right:0;bottom:0;border-right-width:1.5px;border-bottom-width:1.5px}
+  .af.lock{color:var(--accent)}
+
+  /* ---------- clients: logo wall ---------- */
+  /* ---------- selected work: two rows, edge to edge ----------
+     Each row is justified: a case's flex-grow is its aspect ratio, so every case in a row is the
+     same height and the row fills the full window width with no cropping. */
+  .cases-grid{width:100vw;margin-left:calc(50% - 50vw);display:flex;flex-direction:column;gap:var(--cg)}
+  .cases{--cg:clamp(6px,.6vw,10px)}
+  .cases h2 + .cases-grid{margin-top:clamp(28px,3vw,44px)}
+  .cases-row{display:flex;gap:var(--cg)}
+  .case{margin:0;flex:1 1 0;flex-grow:calc(var(--ar));min-width:0}   /* figure carries a 40px default margin */
+  .case .ph{aspect-ratio:var(--ar);overflow:hidden;background:var(--ground-lo)}
+  .case .ph img,.case .ph video{display:block;width:100%;height:100%;object-fit:cover;transition:transform .8s cubic-bezier(.2,.7,.2,1)}
+  .case:hover .ph img,.case:hover .ph video{transform:scale(1.025)}
+
+  /* chapter marks: a hairline in ink across the text column opens each section, with the heading right under it,
+     and the same air between all sections */
+  .sec{border-top:1px solid var(--ink);padding-top:clamp(20px,2.4vw,32px);margin:0 0 clamp(88px,11vw,144px)}
+  .team{margin-bottom:0}   /* the map band's own top margin follows */
+
+  /* ---------- proofing: a service sold to others, with its specs and an order link ---------- */
+  .proof{display:grid;grid-template-columns:7fr 5fr;gap:clamp(32px,5vw,80px);align-items:end}
+  .proof-text > p:not(.eyebrow){margin:0;max-width:52ch;color:var(--ink-2);font-size:clamp(16px,1.2vw,18px);line-height:1.65;text-wrap:pretty}
+  .proof-go{display:inline-flex;align-items:center;min-height:48px;margin-top:28px;padding:0 20px;background:var(--ink);color:var(--ground-hi);
+    font-family:var(--body);font-size:14.5px;font-weight:500;letter-spacing:.01em;text-decoration:none;transition:background .2s,color .2s}
+  .proof-go:hover{background:var(--accent);color:var(--on-accent)}
+  .proof-spec{margin:0;border-top:1px solid var(--ink)}
+  .proof-spec div{display:grid;grid-template-columns:9.5em 1fr;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .proof-spec dt{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);padding-top:3px}
+  .proof-spec dd{margin:0;font-size:16px;color:var(--ink)}
+  /* ---------- client logos: four big slots; every few seconds the set rolls up to the next four,
+     one slot after the other, like a flip board. Without script (or with reduced motion) all twelve
+     simply stand in a still grid ---------- */
+  .logo-flip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));column-gap:clamp(16px,3vw,48px);row-gap:clamp(4px,1.5vw,20px)}
+  .logo-flip .cell{aspect-ratio:5/2;display:grid;place-items:center}
+  .logo-flip img{display:block;width:80%;height:auto;filter:var(--logo-img)}
+  /* four across, wider than the text column: it reaches out towards the window edges */
+  .logo-flip.flip{grid-template-columns:repeat(4,minmax(0,1fr));column-gap:clamp(12px,2vw,40px);
+    width:calc(100vw - 2 * clamp(20px,4vw,72px));margin-left:calc(50% - 50vw + clamp(20px,4vw,72px))}
+  .logo-flip.flip .cell{position:relative;display:block;aspect-ratio:2/1;overflow:hidden}
+  .logo-flip.flip img{position:absolute;left:0;top:50%;width:100%;transform:translateY(-50%);transition:transform .7s cubic-bezier(.7,0,.2,1),opacity .7s}
+  .logo-flip.flip img.below{transform:translateY(60%);opacity:0}
+  .logo-flip.flip img.above{transform:translateY(-160%);opacity:0}
+  /* tight and line-free: no hairline above the logos or above the crew, less air on both sides */
+  .clients{border-top:0;padding-top:0;margin-top:calc(clamp(40px,5vw,72px) * -1);margin-bottom:clamp(40px,5vw,72px)}
+  .team{border-top:0}
+
+  /* ---------- photo wall: two photos under the crew, one justified row edge to edge (like Selected work) ---------- */
+  .wall{width:100vw;margin:clamp(64px,8vw,112px) 0 0 calc(50% - 50vw);display:flex;gap:clamp(6px,.6vw,10px)}
+  .wall img{display:block;flex:1 1 0;flex-grow:calc(var(--ar));min-width:0;aspect-ratio:var(--ar);height:auto;object-fit:cover;background:var(--ground);filter:grayscale(1)}
+
+  /* the agency, in its own words — opens the section, before the client wall */
+  .about{margin:0 0 clamp(88px,11vw,144px)}
+  /* the first sentence opens the section as a statement, a step down from the hero headline */
+  .about .about-lead{max-width:30ch;margin:0 0 28px;font-size:clamp(26px,2.5vw,40px);line-height:1.2;letter-spacing:-.015em;color:var(--ink);text-wrap:balance}
+  .about p{max-width:60ch;margin:0 0 18px;color:var(--ink-2);font-size:clamp(16px,1.2vw,18px);line-height:1.65;text-wrap:pretty}
+  .about p:last-child{margin-bottom:0}
+
+  /* ---------- crew & contact ---------- */
+  .after{position:relative;z-index:1;background:var(--ground-hi);border-top:1px solid var(--line);padding:clamp(72px,10vw,140px) clamp(20px,6.5vw,110px) 0;overflow-x:hidden;overflow-x:clip}
+  .wrap{max-width:1180px;margin:0 auto}
+  .after h2{font-family:var(--display);font-weight:400;text-transform:uppercase;font-size:clamp(48px,7vw,112px);line-height:.9;margin:0 0 14px}
+  /* Swedish: in Anton the dots on Ä Ö reach 1.05em above the baseline (caps .87em), so with the tight .9 leading
+     they ran into the line above and the eyebrow. Swedish gets room for them; English stays tight */
+  html[lang="sv"] .after h2{line-height:1.18}
+  html[lang="sv"] .after .sec h2:first-child{padding-top:.18em}
+  .after .lede{color:var(--ink-2);max-width:52ch;margin:0 0 56px;font-size:17px}
+  .team h2 + .crew{margin-top:clamp(28px,3vw,40px)}
+  .crew{display:grid;grid-template-columns:repeat(3,1fr);column-gap:32px}
+  /* every cell in a row is as tall as the tallest; names and emails sit on the bottom, so a title above a name
+     (CEO) never pushes one person out of line with the rest */
+  .crew div{padding:14px 0 16px;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+  .crew strong{font-weight:500;font-size:17px}
+  .crew a{font-size:14.5px;color:var(--mute);text-decoration:none}
+  .crew span{font-family:var(--mono);color:var(--mute);letter-spacing:.1em;text-transform:uppercase;font-size:10.5px}
+  .crew a{transition:color .2s}
+  .crew a:hover{color:var(--accent)}
+  /* the invitation that used to close the agency copy now leads into the contact details (same look as the copy) */
+  .contact-lead{scroll-margin-top:96px;margin:clamp(56px,6vw,88px) 0 0;max-width:60ch;color:var(--ink-2);font-size:clamp(16px,1.2vw,18px);line-height:1.65;text-wrap:pretty}
+  .contact{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;margin-top:28px;padding-top:28px;border-top:1px solid var(--ink)}
+  .contact h3{font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase;color:var(--mute);margin:0 0 10px}
+  .contact p{margin:0;font-size:17px;line-height:1.6}
+  .contact a{text-decoration:none;border-bottom:1px solid var(--line);white-space:nowrap;transition:color .2s,border-color .2s}
+  .contact a:hover{color:var(--accent);border-color:var(--accent)}
+  /* footer: one quiet closing line — small signature left, meta right */
+  .foot{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-top:clamp(64px,7vw,96px);padding-top:28px;border-top:1px solid var(--line)}
+  .foot-meta{display:flex;align-items:center;gap:28px;font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute)}
+  .foot-meta a{color:var(--ink-2);text-decoration:none;transition:color .2s}
+  .foot-meta a:hover{color:var(--accent)}
+
+  /* ---------- the dark close: contact details and footer (with the logo in white) on ink ---------- */
+  .end{--end-text:#D5D8DB;--end-mute:#9A9FA4;--end-line:rgba(247,248,248,.16);
+    width:100vw;margin-left:calc(50% - 50vw);background:#000;color:var(--ink);border-top:1px solid var(--line);padding:clamp(40px,5vw,72px) clamp(20px,6.5vw,110px) 32px}
+  .end-in{max-width:1180px;margin:0 auto}
+  .end .foot svg{display:block;width:clamp(120px,11vw,156px);height:auto;color:var(--ink)}
+  /* one line where it fits, otherwise evenly balanced lines (no lone "av dig.") */
+  .end .contact-lead{margin-top:0;max-width:none;color:var(--end-text);text-wrap:balance}
+  .end .contact{border-top-color:var(--ink)}
+  .end .contact h3{color:var(--end-mute)}
+  .end .contact a{border-bottom-color:var(--end-line)}
+  .end .foot{border-top-color:var(--end-line)}
+  .end .foot-meta{color:var(--end-mute)}
+  .end .foot-meta a{color:var(--end-text)}
+  /* the fixed header turns light while it sits over the dark close */
+  .top .brand,.top nav a,.lang,.lang button,.brand span{transition:color .3s}
+
+  /* ---------- find us: street map band ---------- */
+  .where{position:relative;width:100vw;height:clamp(320px,28vw,480px);margin:clamp(64px,8vw,112px) 0 0 calc(50% - 50vw);border-block:1px solid var(--line);background:var(--ground-hi)}
+  .where-map{position:absolute;inset:0;overflow:hidden;--fx:.64;--fy:.5;
+    -webkit-mask-image:linear-gradient(90deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.3) 24%,#000 52%);mask-image:linear-gradient(90deg,rgba(0,0,0,.12) 0%,rgba(0,0,0,.3) 24%,#000 52%)}
+  .where-map svg{display:block;width:100%;height:100%}
+  .where-map path{fill:none;vector-effect:non-scaling-stroke;stroke-linecap:round;stroke-linejoin:round}
+  /* a clear hierarchy: shoreline, main roads, streets, lanes. Opacity sits on the groups,
+     so crossings and joins never darken where lines overlap */
+  .m-shore{stroke:var(--ink);stroke-width:1.6;opacity:.8}
+  .m-major{stroke:var(--ink);stroke-width:2.6;opacity:.6}
+  .m-mid{stroke:var(--ink-2);stroke-width:1.4;opacity:.5}
+  .m-minor{stroke:var(--mute);stroke-width:.9;opacity:.4}
+  .m-labels text{font-family:var(--mono);fill:var(--mute);letter-spacing:.14em;text-anchor:middle;dominant-baseline:central;
+    stroke:var(--ground-hi);stroke-width:4px;paint-order:stroke;vector-effect:non-scaling-stroke}
+  .m-water text{font-family:var(--body);font-style:italic;fill:var(--mute);opacity:.75;letter-spacing:.3em;text-anchor:middle;dominant-baseline:central}
+  .m-poi circle{fill:var(--ink)}
+  .m-poi text{font-family:var(--body);fill:var(--ink-2);dominant-baseline:central;stroke:#000;stroke-width:4px;paint-order:stroke;vector-effect:non-scaling-stroke}
+  .where-map{cursor:grab;touch-action:pan-y;outline-offset:-2px}
+  .where-map.grabbing{cursor:grabbing}
+  .map-ctl{position:absolute;right:10px;top:10px;z-index:2;display:flex;flex-direction:column;gap:1px;background:var(--line)}
+  .map-ctl button{width:36px;height:36px;display:grid;place-items:center;border:0;padding:0;background:rgba(0,0,0,.88);color:var(--ink);
+    font:500 18px/1 var(--body);cursor:pointer;transition:background .2s,color .2s}
+  .map-ctl button:hover{background:var(--accent);color:var(--on-accent)}
+  .map-ctl button:disabled{opacity:.35;cursor:default;background:rgba(0,0,0,.88);color:var(--ink)}
+  .map-hint{position:absolute;right:10px;bottom:30px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);
+    background:rgba(0,0,0,.85);padding:2px 6px;pointer-events:none}
+  @media (hover:none){.map-hint{display:none}}
+  .m-labels .m-place{font-family:var(--display);fill:var(--ink);opacity:.1;letter-spacing:.3em;stroke:none}
+  .pin{position:absolute;left:calc(var(--fx) * 100%);top:calc(var(--fy) * 100%);width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 2px #000}
+  .pin::before,.pin::after{content:"";position:absolute;inset:0;border-radius:50%;background:var(--accent-soft);animation:pin-pulse 2.8s cubic-bezier(.2,.6,.3,1) infinite}
+  .pin::after{animation-delay:1.4s}
+  @keyframes pin-pulse{from{transform:scale(1);opacity:1}to{transform:scale(5);opacity:0}}
+  .pin-tag{position:absolute;left:calc(var(--fx) * 100% + 16px);top:calc(var(--fy) * 100% - 38px);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;background:var(--ink);color:var(--ground-hi);padding:5px 9px;white-space:nowrap}
+  .osm{position:absolute;right:10px;bottom:8px;font-family:var(--mono);font-size:10px;letter-spacing:.04em;color:var(--mute);background:rgba(0,0,0,.85);padding:2px 6px}
+  .osm a{color:inherit}
+  .where-card{position:absolute;left:max(clamp(20px,6.5vw,110px),calc((100vw - 1180px) / 2));bottom:clamp(28px,4vw,56px);max-width:520px}
+  .where-card h2{margin:0 0 12px;white-space:nowrap}
+  .where-addr{margin:0;font-size:17px;color:var(--ink)}
+  .where-geo{margin:4px 0 0;font-family:var(--mono);font-size:12px;letter-spacing:.08em;color:var(--mute);font-variant-numeric:tabular-nums}
+  .where-go{display:inline-block;margin-top:22px;font-family:var(--body);font-size:14.5px;font-weight:500;letter-spacing:.01em;text-decoration:none;padding:12px 18px;background:var(--ink);color:var(--ground-hi);transition:background .2s,color .2s}
+  .where-go:hover{background:var(--accent);color:var(--on-accent)}
+
+  /* ---------- narrow (portrait) ---------- */
+  .narrow .p-center{bottom:96px}
+  .narrow .p-together .title{font-size:clamp(38px,11vw,46px)}
+  .narrow .hud{display:none}
+  @media (max-width:760px){
+    .where{height:auto}
+    .where-map{position:relative;height:260px;-webkit-mask-image:none;mask-image:none}
+    .where-card{position:static;max-width:none;padding:28px clamp(20px,6.5vw,110px) 36px}
+    .brand span{display:none}
+    .crew{grid-template-columns:1fr 1fr}
+    .proof{grid-template-columns:1fr}
+    .cases-row{flex-direction:column}
+    .case{flex:auto}
+    .contact{grid-template-columns:1fr;gap:24px}
+    .logo-flip{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .logo-flip.flip{grid-template-columns:repeat(2,minmax(0,1fr));row-gap:8px}
+    .wall{flex-direction:column}
+    .wall img{flex:auto;width:100%}
+    .foot{flex-direction:column;align-items:flex-start;gap:18px}
+    .foot-meta{flex-wrap:wrap;gap:12px 24px}
+    .foot-meta .orgnr{display:block;margin-top:4px}
+    .foot-meta .sep{display:none}
+  }
+  /* no long divider lines anywhere: sections are separated by space alone */
+  .sec,.after,.end,.contact,.foot,.end .contact,.end .foot,.proof-spec{border-top:0}
+  .where{border-block:0}
+  .proof-spec div{border-bottom:0;padding:10px 0}
+  .sec{padding-top:0}
+  @media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+  @media (prefers-reduced-motion:reduce){
+    .cue svg{animation:none}
+    .case .ph img,.case .ph video{transition:none}
+    .proof-go,.cta a,.top nav a,.crew a,.contact a,.foot-meta a{transition:none}
+    .pin::before,.pin::after{animation:none}
+  }
+</style>
+</head>
+<body>
+
+<div class="dot" id="dot" aria-hidden="true"></div>
+<header class="top">
+  <a class="brand" href="#top" aria-label="Turbin AB, back to start"><span data-i18n="brand">Creative production agency · Stockholm</span></a>
+  <nav>
+    <a href="#contact" data-i18n="contact">Contact</a>
+  </nav>
+</header>
+
+<main id="top">
+  <section class="scene" id="scene" aria-label="Turbin">
+    <div class="stage" id="stage">
+      <canvas id="gl" aria-hidden="true"></canvas>
+      <svg class="flat-logo" viewBox="0 0 565.59 276.45" aria-hidden="true"><use href="#logo"/></svg>
+      <video class="flat-film" id="flat-film" src="film/web/logo-spin.mp4" muted loop playsinline preload="none" aria-hidden="true"></video>
+
+      <div class="overlay">
+        <svg id="lines" aria-hidden="true"></svg>
+
+
+        <div class="af" id="af" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="hud" id="hud" aria-hidden="true"></div>
+
+        <div class="panel p-center p-together" data-ch="together">
+          <h1 class="title" data-i18n="hero">Let’s create something <br><em class="hi">impactful</em> together.</h1>
+          <div class="cta">
+            <a href="mailto:info@turbin.se">info@turbin.se</a>
+            <a href="tel:+46854528640">+46 8 545 286 40</a>
+          </div>
+          <a class="cue" id="cue" href="#more" data-i18n-label="more" aria-label="Scroll down"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 9l7 7 7-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="after" id="more">
+    <div class="wrap">
+      <div class="about">
+        <p class="about-lead" data-i18n="aboutLead">We are a creative production agency with our office and studio at Götgatsbacken in Stockholm.</p>
+        <p data-i18n="about1">The team combines broad experience with specialist expertise across a number of disciplines. Our work includes graphic design, high-end retouching and image editing, illustration, animation, infographics, digital production, copy, and content for social media.</p>
+      </div>
+
+      <section class="cases sec" id="cases" aria-labelledby="cases-title">
+        <h2 id="cases-title" data-i18n="casesTitle">Selected work</h2>
+        <div class="cases-grid">
+          <div class="cases-row">
+            <figure class="case" style="--ar:16/9"><div class="ph">
+              <video id="case2-film" muted loop playsinline preload="none" poster="film/web/case2-poster.jpg"
+                     width="1280" height="720" aria-label="Autumn video ads" data-i18n-label="caseFilmAlt">
+                <source src="film/web/case2-800.mp4" type="video/mp4" media="(max-width:760px)">
+                <source src="film/web/case2-1280.mp4" type="video/mp4">
+              </video>
+            </div></figure>
+          </div>
+          <div class="cases-row">
+            <figure class="case" style="--ar:2/3"><div class="ph">
+              <img src="images/web/case-hm-560.jpg" srcset="images/web/case-hm-560.jpg 560w, images/web/case-hm-960.jpg 960w"
+                   sizes="(max-width:760px) 100vw, 30vw" width="960" height="1440" loading="lazy" decoding="async"
+                   alt="An H&amp;M sustainability report designed as a receipt, printed as a poster on a wall" data-i18n-alt="caseAltHM">
+            </div></figure>
+            <figure class="case" style="--ar:4/5"><div class="ph">
+              <img src="images/web/case-peab-560.jpg" srcset="images/web/case-peab-560.jpg 560w, images/web/case-peab-960.jpg 960w"
+                   sizes="(max-width:760px) 100vw, 36vw" width="960" height="1200" loading="lazy" decoding="async"
+                   alt="A Peab helmet against a concrete wall, with the podcast title Livsviktigt across the top" data-i18n-alt="caseAltPeab">
+            </div></figure>
+            <figure class="case" style="--ar:3/4"><div class="ph">
+              <img src="images/web/case-mabra-560.jpg" srcset="images/web/case-mabra-560.jpg 560w, images/web/case-mabra-960.jpg 960w"
+                   sizes="(max-width:760px) 100vw, 34vw" width="960" height="1280" loading="lazy" decoding="async"
+                   alt="The cover of the magazine MåBra, a laughing woman in a pink knitted jumper by the sea" data-i18n-alt="caseAltMabra">
+            </div></figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="proof sec" aria-labelledby="proof-title">
+        <div class="proof-text">
+          <h2 id="proof-title" data-i18n="proofTitle">Right colour, before print</h2>
+          <p data-i18n="proofCopy">Colour-accurate proofs on coated and uncoated paper, printed on our own Epson printers to ISO standard. You see exactly how the job will look in print before it goes to press.</p>
+          <a class="proof-go" href="mailto:info@turbin.se?subject=Provtryck%20%2F%20Proofs" data-i18n="proofCta">Order proofs · info@turbin.se</a>
+        </div>
+        <dl class="proof-spec">
+          <div><dt data-i18n="specCoated">Coated</dt><dd>PSO Coated v3 · Fogra51</dd></div>
+          <div><dt data-i18n="specUncoated">Uncoated</dt><dd>PSO Uncoated v3 · Fogra52</dd></div>
+          <div><dt data-i18n="specStandard">Standard</dt><dd data-i18n="specStandardVal">ISO standard</dd></div>
+          <div><dt data-i18n="specPrinters">Printers</dt><dd data-i18n="specPrintersVal">Epson, in-house</dd></div>
+          <div><dt data-i18n="specOrder">Order</dt><dd data-i18n="specOrderVal">By email · format, paper, quantity</dd></div>
+        </dl>
+      </section>
+
+      <div class="clients sec">
+        <div class="logo-flip" id="logo-flip" role="region" aria-label="Selected clients">
+          <div class="cell"><img src="assets/clients/svenskt-vatten.png" width="720" height="428" alt="Svenskt Vatten"></div>
+          <div class="cell"><img src="assets/clients/spotify.png" width="720" height="428" alt="Spotify"></div>
+          <div class="cell"><img src="assets/clients/rikshem.png" width="720" height="428" alt="Rikshem"></div>
+          <div class="cell"><img src="assets/clients/peab.png" width="720" height="428" alt="PEAB"></div>
+          <div class="cell"><img src="assets/clients/kicks.png" width="720" height="428" alt="KICKS"></div>
+          <div class="cell"><img src="assets/clients/intellecta.png" width="720" height="428" alt="Intellecta"></div>
+          <div class="cell"><img src="assets/clients/hallvarsson-halvarsson.png" width="720" height="428" alt="Hallvarsson &amp; Halvarsson"></div>
+          <div class="cell"><img src="assets/clients/gudrun-sjoden.png" width="720" height="428" alt="Gudrun Sjödén"></div>
+          <div class="cell"><img src="assets/clients/globalconnect.png" width="720" height="428" alt="GlobalConnect"></div>
+          <div class="cell"><img src="assets/clients/aller.png" width="720" height="428" alt="Aller"></div>
+          <div class="cell"><img src="assets/clients/agria.png" width="720" height="428" alt="Agria"></div>
+          <div class="cell"><img src="assets/clients/uppsala-auktionskammare.png" width="720" height="428" alt="Uppsala Auktionskammare"></div>
+        </div>
+      </div>
+
+      <section class="team sec" aria-labelledby="crew-title">
+      <h2 id="crew-title" data-i18n="crewTitle">The crew</h2>
+      <div class="crew">
+        <div><span data-i18n="ceo">CEO</span><strong>Kicki Särenfors</strong><a href="mailto:kicki@turbin.se">kicki@turbin.se</a></div>
+        <div><strong>Fredric Lundström</strong><a href="mailto:fredric@turbin.se">fredric@turbin.se</a></div>
+        <div><strong>Ola Belin</strong><a href="mailto:ola@turbin.se">ola@turbin.se</a></div>
+        <div><strong>Claes Berg</strong><a href="mailto:claes@turbin.se">claes@turbin.se</a></div>
+        <div><strong>Thomas Asp</strong><a href="mailto:thomas@turbin.se">thomas@turbin.se</a></div>
+        <div><strong>Peter Andersson</strong><a href="mailto:peter@turbin.se">peter@turbin.se</a></div>
+        <div><strong>Patrik Larsson</strong><a href="mailto:patrik@turbin.se">patrik@turbin.se</a></div>
+        <div><strong>Roger Pettersson</strong><a href="mailto:roger@turbin.se">roger@turbin.se</a></div>
+        <div><strong>Maria Kana</strong><a href="mailto:maria@turbin.se">maria@turbin.se</a></div>
+      </div>
+
+      <div class="wall">
+        <img class="w-kicki" style="--ar:4/5" src="images/web/kicki-45-560.jpg" srcset="images/web/kicki-45-560.jpg 560w, images/web/kicki-45-960.jpg 960w" sizes="(max-width:760px) 100vw, 35vw" width="960" height="1200" loading="lazy" decoding="async" alt="Kicki Särenfors smiling at her desk in the studio" data-i18n-alt="altKicki">
+        <img class="w-team" style="--ar:3/2" src="images/web/thomasfredric-800.jpg" srcset="images/web/thomasfredric-800.jpg 800w, images/web/thomasfredric-1400.jpg 1400w" sizes="(max-width:760px) 100vw, 65vw" width="1400" height="933" loading="lazy" decoding="async" alt="Thomas and Fredric at work at their screens" data-i18n-alt="altTeam">
+      </div>
+      </section>
+
+      <section class="where" aria-labelledby="where-title">
+        <div class="where-map" id="where-map" tabindex="0" aria-label="Street map. Drag or use the arrow keys to move, plus and minus to zoom.">
+          <svg id="map" viewBox="-1500 -450 2300 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="Street map of Södermalm and Slussen in Stockholm, with Turbin’s studio at Klevgränd 2 marked"><g class="m-minor"><path d="M-15 -571l-0.5 -1l-1.5 -1.5l-3 -4l-17 -23l-3.5 -5l-2 -3.5l-3 -5l-12 -26l-2 -4.5l-1 -1.5l-0.5 -1M-838 487l1 0l2 -0.5l5 -1.5l254 -65l6 -1.5l3 -0.5l3 -0.5l3 0l3 -0.5l3 -0.5l6 -1.5l33 -8l5.5 -1.5l3 -1l2.5 -1.5l2 -1l2.5 -1.5l3 -1l5 -1.5l65 -17l4.5 -1l2 -0.5l1 -0.5M486 147l-0.5 -1l-0.5 -2l-1.5 -4.5l-4 -13l-2.5 -5l-2.5 -2.5l-5 -2l-34 -9l-5.5 -1.5l-3.5 -1.5l-5.5 -2.5l-9 -5l-5 -3l-3.5 -2l-4.5 -4l-14 -12l-4.5 -4l-3.5 -1.5l-5.5 -2.5l-52 -16l-5.5 -1.5l-4 -1l-4.5 -0.5l-5 0l-4.5 -0.5l-4 -0.5l-6 -0.5l-47 -7l-6 -0.5l-4 -1l-6 -1l-66 -11l-6 -1l-4 -1l-6 -1.5l-63 -14l-6 -1.5l-4 -0.5l-6 -1l-66 -10l-6 -0.5l-4 0l-6 0.5l-10 1l-5 0.5l-2 0.5l-1 0M46 -73l-1 0l-2 0.5l-5 1.5l-141 34l-5.5 1.5l-2.5 1l-2 1.5l-2 1l-1 1l-0.5 0.5l-0.5 0.5M446 158l0 1l0.5 2l1.5 4.5l37 144l1.5 5l0.5 2.5l0 2l0 1l0 1l-0.5 1l-0.5 1l-1 1l-1.5 0.5l-2 1l-5.5 1.5l-31 7l-5 2.5l-1.5 2l0.5 5l5 20l1.5 4.5l0.5 2l0 1M82 -375l69 32M86 -389l73 25M108 -434l0 0l0.5 0.5l0.5 0.5l0 1l1.5 1l2 1l5 2l50 21l4.5 2l2 0.5l1 0.5M119 -457l67 24M128 -580l1 0.5l2 0.5l4.5 1l31 8l4.5 1.5l1.5 1.5l0.5 1.5l0 2l-0.5 1l-0.5 1l0 0.5M172 -561l0 0.5l-0.5 1l-0.5 1l-1 2l-1.5 1l-2.5 0.5l-5 -0.5l-29 -6l-5 -1l-2 -0.5l-1 0M172 -561l42 8M145 -594l73 17M223 -600l-1 0l-2 -0.5l-5 -1.5l-40 -9l-6 -1.5l-4 -0.5l-6 -1l-15 -1l-5 -0.5l-2 -0.5l-1 0M747 -634l0 1l0 1.5l0.5 2.5l0 4l0 3l-0.5 2.5l-1 2.5l-2 2l-1.5 2l-1.5 1.5l-1.5 1.5l-2 1l-2 1.5l-3 1l-3.5 1l-5 1l-4 1l-3.5 0.5l-3.5 0l-3 0l-3.5 0l-3.5 -0.5l-4 -0.5l-5 -1l-3.5 -1.5l-2.5 -2l-3 -5l-19 -44l-2.5 -5.5l-2 -3.5l-2.5 -3l-3 -3l-2.5 -3l-2.5 -3l-3.5 -5l-6 -9l-3 -4.5l-1.5 -3l-1.5 -2.5l-1 -2l-0.5 -2.5l-0.5 -2.5l0 -2.5l0 -2l0.5 -2l0 -1.5l0 -0.5M947 268l0 -1l0 -2l0 -4l0 -6l0 -4.5l0.5 -2.5l0.5 -2l1 -1l0.5 -2l0.5 -2.5l0 -5.5l0 -38l0 -5l0 -2l0 -1M949 566l1 -67M822 377l0 1l0.5 2l1 5l15 78l1 6l1 4l1 6l31 137l1 5l0.5 2l0 1M-420 379l-57 -230M-1228 40l-0.5 -0.5l-0.5 -0.5l-1 -1l-1 -2l-2 -1.5l-2 -1.5l-3.5 -2.5l-5 -3l-4 -2l-3.5 -1l-4.5 -0.5l-5 0l-4.5 0l-4 0.5l-6 1.5l-377 89l-5 1.5l-2 0.5l-1 0M133 81l-0.5 0l-1 0l-2 0l-2 0l-3 0.5l-3 0.5l-5 1l-117 32l-4.5 1l-2 0.5l-1 0.5M11 -597l0.5 -0.5l1.5 -1.5l3.5 -3.5l31 -30l4 -4l3 -2.5l4.5 -4l17 -14l3.5 -3l1.5 -1.5l1 -0.5M-978 47l-382 93M-817 573l-0.5 0l-1 0.5l-2 0.5l-2 0l-2.5 0.5l-2 0l-2.5 0l-2 0l-3 -0.5l-3 -1l-5 -1.5l-220 -72l-5.5 -2l-4 -1.5l-5.5 -2l-8 -4l-5 -2l-2 -1.5l-1.5 -1l-1 -1l-0.5 -1l-0.5 -1.5l-0.5 -1l0 -2l0 -1.5l0 -2.5l0.5 -2.5l1 -3l1.5 -2.5l2 -2l5.5 -2l220 -53l5 -1.5l2 -0.5l1 0M-626 186l-158 39M-357 205l-22 -80M-198 229l-41 5M-508 157l-118 29M308 298l-1 0l-2 0.5l-5 1.5l-115 28l-5.5 1l-3 0.5l-2.5 -0.5l-2 0l-2 -1.5l-1.5 -2l-2 -5l-7 -19l-2 -5l-1 -2l-1.5 -1.5l-1 0l-2 -0.5l-2.5 0l-3.5 0l-4 0l-3 0l-2.5 0l-1.5 -0.5l-1 -1l-0.5 -1.5l-1 -2l-1.5 -5l-10 -33l-1 -4.5l-0.5 -2l-0.5 -1M126 601l1 -0.5l2 -0.5l4.5 -1l170 -45l5.5 -1.5l4 -1l6 -1.5l233 -57l6 -1.5l4 -1l6 -1.5l254 -65l5 -1.5l2 -0.5l1 0M-34 281l-61 -226M3 -413l-36 -46M-392 495l-1 0.5l-2 0.5l-4.5 2l-118 48l-5 2l-3 0.5l-2 0.5l-2 0l-1.5 0l-1.5 -1l-1 -0.5l-1 -1l-1 -1.5l-1 -2.5l-1.5 -5.5l-86 -343l-1.5 -5l-0.5 -2l0 -1M-408 432l-148 31M-1108 383l1 0l2 -0.5l5 -1.5l486 -115l5.5 -1.5l3 -1l3 -1l2 -1l3 -1l3 -1l5.5 -1.5l123 -31l6 -1l3.5 -0.5l3.5 0.5l3 0l3.5 0.5l3.5 -0.5l6 -1l72 -18l5 -1.5l2 -0.5l1 0M949 404l0 -38M446 371l-1 0l-2 0.5l-5 1.5l-166 40l-6 1.5l-3.5 1l-3.5 1.5l-3 1l-3.5 1.5l-3.5 1l-6 1.5l-145 37l-5 1.5l-2 0.5l-1 0M-808 -116l-1 0l-2 0.5l-5 0.5l-22 2l-5.5 1l-3 1l-2 1l-2 2l-1 2l-1 2.5l-0.5 5.5l-1 17l0.5 6l0.5 4l1 6l11 44l1 6l-0.5 3.5l-1 3.5l-2 3l-1 2.5l-1 1.5l-0.5 1M-188 268l0 -1l-0.5 -2l-1.5 -4.5l-6 -24l-1 -5l-0.5 -3.5l0 -3l0 -2l0 -3l-0.5 -3.5l-1 -5l-38 -143l-1 -4.5l-0.5 -2l-0.5 -1M-77 292l0 -1l-0.5 -2l-1.5 -5l-24 -107l-1.5 -6l-1 -4l-1.5 -5.5l-20 -76l-1 -4.5l-0.5 -2l-0.5 -1M-1474 149l-1 0l-2 0.5l-5 1l-60 12l-6 1l-4 1l-5.5 1.5l-67 20l-5 1l-3.5 0.5l-3 -0.5l-2 0l-2 -0.5l-1.5 -0.5l-0.5 0M-186 -495l73 -63M37 -453l-0.5 0.5l-1.5 1.5l-3.5 4l-21 23l-3.5 4l-1.5 2l-1.5 2l0 1l-0.5 1l-0.5 0.5l0 0.5M188 366l0.5 0l0.5 1l1 0.5l2 1l1 1.5l1.5 2.5l1.5 5.5l11 44l1.5 5l0.5 2l0 1M-239 234l-0.5 1l-1 1.5l-3 4l-9 15l-3 4l-1.5 2l-1.5 1.5l-1 1l-1.5 0.5l-2.5 1l-5 1.5l-7 2l-4.5 1l-2 0.5l-1 0.5M-983 279l0.5 0l1.5 0l2 0l3 0l3 0l3 -0.5l6 -1.5l61 -15l5 -1.5l2 -0.5l1 0M-972 279l17 67M-504 589l1 -0.5l2 -0.5l4.5 -1.5l23 -8l5 -1.5l3 -0.5l2.5 0l2 0l2 0.5l2 0.5l2.5 1l2 1l2.5 0.5l2.5 0l2.5 -1l3 -1l3 -1.5l3 -1l6 -1.5l140 -34l5.5 -1l3 0l2.5 0.5l2 1l1.5 1l1.5 1l1 0.5l0 1l1 1.5l0.5 2l1.5 5.5l13 52l1.5 5l0.5 2l0 1M-394 -163l0 -1l-0.5 -2l-1.5 -5l-4 -16l-1 -5.5l0 -3l0.5 -2l1 -2l1.5 -1.5l2.5 -1l3 -1l4 0l3.5 -0.5l4 0l4 0.5l4 1l4 1l4 1l5 1.5l7 3l5 2l3.5 2l5 3l7 4l4.5 3.5l2.5 2l2.5 2.5l2 2l1.5 2l1 1l0.5 0.5M-531 -207l0.5 1l0.5 2l1.5 4.5l12 42l2 5.5l1 4l1 6l5 27l1 5l0.5 2l0 1M-931 81l1 -0.5l2 -0.5l4.5 -1l65 -18l4.5 -2l1.5 -2.5l-0.5 -5.5l-28 -114l-1.5 -5.5l-1 -3l-1.5 -2.5l-1 -2l-1.5 -2l-1.5 -1.5l-1 -1.5l-2 -1l-2 -1.5l-2.5 -1.5l-5 -2.5l-14 -6l-6 -2.5l-3.5 -0.5l-6 -0.5l-64 -2l-5.5 0l-3.5 0l-3 0.5l-3 0l-2.5 0.5l-2 1l-2 1l-2 1l-1.5 1.5l-1.5 1.5l-1.5 1.5l-1 2l-1 1.5l-0.5 2l-0.5 2l0 2l0 2l0.5 1.5l0.5 1.5l0 2l1 1l1 2l1 1l1 2l2 1l2.5 2l2.5 1l4 2l3 1l3 0l2.5 0l2 0l2 -0.5l1 -0.5l0.5 0M-444 142l0 -1l-0.5 -2l-1.5 -5l-31 -123l-1.5 -6l-0.5 -4l-0.5 -4l0 -5l-0.5 -4l-0.5 -4l-1.5 -6l-9 -37l-1.5 -5l-0.5 -2l0 -1M-585 441l-248 64M-1576 74l1 0l2 -0.5l5 -1.5l106 -24l6 -1.5l4 -1l6 -1l156 -30l5.5 -1l2.5 0l2 0.5l2 0l1.5 1l2 1.5l2 2l2 2l2 2l1 1l0.5 0.5M12 190l19 74M-895 260l118 473M-359 624l-33 -129M817 356l-0.5 -1l-0.5 -2l-1.5 -4.5l-5 -19l-2 -5l-0.5 -2.5l-1 -1.5l0 -1l-1 -1l-1 -0.5l-1 -1l-1 0l-2 -0.5l-2.5 -0.5l-5.5 -0.5l-97 -7l-6 0l-4 0.5l-5.5 1.5l-12 4l-5.5 2l-4 1l-6 1.5l-198 50l-5 1.5l-2 0.5l-1 0M-238 -562l-0.5 -1l-1.5 -1.5l-3 -3.5l-7 -8l-3.5 -4l-2 -2l-1.5 -1l-2 -1l-1.5 -0.5l-2 -0.5l-2 -0.5l-2 0l-2 -0.5l-1 0l-0.5 0M289 116l0 1l0.5 2l1 5l4 24l1 5l0.5 2.5l1 1.5l0 1l1 0.5l1 0.5l1 0.5l1 0l2 0l2.5 -0.5l5 -1l39 -10l4.5 -1.5l2 -1.5l1 -2l0 -2l0 -1.5l0 -1l0 -0.5M446 371l70 259M-668 -129l0 -1l-0.5 -2l-0.5 -5l-2 -18l-1.5 -5l-2.5 -2l-5 -1l-25 -1l-5 0.5l-2.5 0l-1.5 0.5l0 1l-0.5 1.5l0.5 2l0.5 5.5l7 30l1 5l0.5 2l0 1M-41 -448l-0.5 0.5l-1.5 1.5l-4 3.5l-14 12l-4 3.5l-2.5 1.5l-1.5 1l-2 0l-1.5 -0.5l-2 -1.5l-3.5 -3.5l-139 -169l-3 -3.5l-1.5 -1.5l-0.5 -1M486 147l-270 72M454 187l116 -29M536 132l-0.5 0l-1 1l-1 0.5l-2 1l-2 1l-3 1l-5.5 1.5l-27 7l-5 1.5l-2 0.5l-1 0M471 257l1 0l2 -0.5l5 -1.5l55 -13l6 -1.5l3 -1l3 -1.5l3 -1l2 -1l1.5 -0.5l0.5 -0.5M-692 -67l-152 34M-448 -158l-1 0l-2 0.5l-5 0.5l-50 6l-6 1l-4 0.5l-6 1l-104 16l-6 1l-4 0.5l-6 0.5l-158 14l-5 0l-2 0.5l-1 0M-493 -67l-1 0l-2 0.5l-5 1.5l-280 68l-6 1.5l-4 1l-5.5 1.5l-35 10l-4.5 1l-2 0.5l-1 0.5M-441 -121l56 -13M-448 -158l7 37M-1353 254l9 38M-692 -67l0 1l0.5 2l1.5 5l21 84l1.5 6l1.5 4l1.5 5l3 6l1.5 5l1.5 4l1.5 6l29 117l1.5 5l0.5 2l0 1M-692 -67l1 0l2 -0.5l5 -1l77 -17l5.5 -1l3 -1l2.5 -1l2 -1l2.5 -1l3 -1l5.5 -1l63 -12l6 -1l3.5 -0.5l3.5 0l3 0l3.5 0l3.5 -0.5l6 -1l13 -3l6 -1l4 -1l5.5 -2l14 -4l4.5 -1.5l2 -0.5l1 -0.5M133 81l0 -1l-0.5 -2l-1.5 -4.5l-4 -16l-1.5 -5l-1 -2.5l-1.5 -2l-1 -2l-2 -1l-2.5 -1.5l-5.5 -1l-35 -8l-6 -1l-4 -0.5l-6 -0.5l-12 -1l-6 -0.5l-4 0l-6 0l-20 0l-6 0l-4 0.5l-4.5 1l-5 1l-3.5 1l-2 0.5l-1 0M151 151l-18 -70M-1037 293l54 -14M-1001 209l18 70M-138 -429l78 -65M-38 -552l-116 103M94 -503l-0.5 0.5l-1.5 1.5l-2.5 2.5l-4 3l-3 3l-2.5 3l-4 4.5l-10 11l-3 3.5l-1.5 1.5l-0.5 1M77 -571l-1 0l-2 0.5l-4 0l-7 1l-5 0.5l-3.5 1l-3.5 1l-4 1l-2.5 1l-1.5 0.5l-1 0.5M101 -502l0 -1l0 -2l-0.5 -5l-1 -20l-0.5 -6l0 -4l0 -6l1 -16l0 -5l0 -2l0 -1M915 476l0 -1l0 -2l0 -5l0 -25l0 -5l0.5 -2.5l0.5 -1.5l0 0l1.5 -0.5l2.5 -0.5l5 0l48 0l5 0l2.5 0.5l1.5 0.5l1 0l0.5 1.5l0.5 2.5l0 5l1 24l0 5l0 2l0 1M216 219l-0.5 -1l-0.5 -2l-1 -4.5l-16 -58l-1.5 -5l-1 -3l-1 -2l-1 -2l-0.5 -1l-1 -1l0 -0.5M-337 279l23 77M-691 367l1 0l2 -0.5l5 -1.5l223 -53l6 -1.5l4 -1.5l5.5 -2l8 -3l5.5 -2l4 -1.5l6 -1.5l76 -18l5 -1.5l2 -0.5l1 0M-392 495l1 -0.5l2 -0.5l4.5 -2l88 -35l4.5 -3l1.5 -2.5l-0.5 -5.5l-21 -82l-1.5 -5l-0.5 -2l0 -1M-385 -134l1 -0.5l2 -0.5l4.5 -1l30 -8l5.5 -1l4 0l5.5 1.5l14 5l5 1.5l2 1l1.5 1l1 1l0.5 1.5l1 2.5l1 4l1 6l1 4l0.5 2l0 1M121 -495l82 2M192 139l-41 12M133 81l1 0l2 -0.5l5 -1l16 -4l5.5 -0.5l3 0l2.5 0l2 1l2 1l1 1l1.5 1l1 2l1 2l1 2.5l1.5 5l11 41l1 4.5l0.5 2l0.5 1M202 93l1 0l2 -0.5l5 -0.5l31 -3l6 -0.5l4 -0.5l6 0l18 0l5 0l2.5 0.5l1.5 0.5l1 0l0.5 1.5l0.5 2.5l1 5l1 10l0.5 5l0.5 2l0 1M-1435 -41l0.5 0l1 0l1.5 0l2 0l2 0.5l2 0.5l2 1l2 1l2 2l2.5 2l2.5 2.5l3 3l2.5 3l2 3l1.5 2.5l2 3l1 3l1 3.5l1 4l1 6l0.5 4.5l0 4l-1 5l-1 6l-1 4.5l0 3l0 3l0 2l0.5 2l0 1l0 0.5M-815 432l0.5 0l0.5 -0.5l1 -0.5l1 -1l2 -0.5l2.5 -1l5.5 -1.5l66 -16l5.5 -1l2.5 0l2 0l2 1l1 1.5l1.5 2l1.5 5l3 10l1 4.5l0.5 2l0.5 1M-691 367l-0.5 0.5l-1 1l-1.5 1l-2 2l-2.5 1.5l-3 1.5l-5 1.5l-67 17l-4.5 1.5l-2.5 1.5l-1.5 1l0 2l-0.5 1l-0.5 0.5l0 0.5M-1570 -96l0 1l0 1.5l0.5 2.5l0 3l0 3l0 2.5l-0.5 1.5l-1 2l-1.5 1.5l-2 2l-4 3l-26 18l-5 3.5l-3 2l-5 3.5l-170 109l-4.5 3l-3 2l-3 1.5l-3 1l-2 1l-1.5 0.5l-0.5 0.5M-1574 -145l0 1l0.5 2l0.5 5l4 27l0.5 5.5l0 2.5l-0.5 2l0 2l-0.5 1l-0.5 0.5l0 0.5M-288 -54l1 -0.5l2 -0.5l4.5 -1l60 -16l5.5 -1.5l4 -0.5l4.5 -0.5l5 -1l4 0l3 0l2 0l2 0l1 0.5l1 0l0.5 0M192 139l97 -23M313 86l22 32M-672 567l0.5 -0.5l1.5 -0.5l2 -1l2 -2l3 -1l3.5 -1.5l5.5 -1.5l106 -27l5 -1.5l2 -0.5l1 0M-230 -145l0 1l1 2l0.5 2.5l1 4l0 3l-1.5 2l-5 2l-62 14l-5 1l-2 0.5l-1 0M-238 -562l74 -59M-92 -642l-1 0.5l-1 1l-2.5 1.5l-3 2l-3 2l-3 2.5l-4.5 4l-101 89l-4 3.5l-1.5 1.5l-0.5 0.5M-139 -590l39 -32M-89 -608l-38 32M-61 563l-1 0l-2 0.5l-5 1.5l-770 192l-6 1.5l-4 1l-6 1l-43 10l-5 1l-2 0.5l-1 0M-298 214l-60 -244M-841 14l-1 0l-2 0.5l-5 1l-9 1l-6 1.5l-4 0.5l-5.5 1.5l-46 12l-4.5 1l-2 0.5l-1 0.5M566 454l15 58M788 579l-88 22M-765 303l-53 -218M1043 570l-1 -0.5l-2 -0.5l-4.5 -1l-89 -25l-5.5 -1l-4 0l-6 1l-135 34l-5 1.5l-2 0.5l-1 0M-1059 578l0 1l0.5 1.5l0.5 2.5l0 3l1 3.5l1.5 3.5l2.5 5l8 15l3 5l2 3.5l3.5 5.5l22 35l3.5 5.5l2.5 3l3.5 5l27 34l4 5l2.5 3l4 4l34 33l3.5 3.5l1.5 1.5l0.5 0.5M-213 -232l-1 0l-2 0l-5 -0.5l-20 -1l-6 -0.5l-4 0l-6 -1l-280 -28l-6 -0.5l-4 -0.5l-6 0l-593 5l-6 0l-4 0l-6 0.5l-46 4l-6 0.5l-4 0.5l-6 1l-164 26l-6 1l-4 0.5l-6 1l-281 38l-5 0.5l-2 0.5l-1 0M-1576 74l0 -1l-0.5 -2l-1 -5l-10 -60l-1 -5.5l0 -2.5l0.5 -2l0 -2l1 -1.5l1 -1.5l1.5 -2l2 -2l2 -2l3 -1.5l5 -3l81 -36l5.5 -2.5l4 -1.5l5.5 -2l8 -2l5.5 -1.5l4 -1l5.5 -0.5l8 -1l5.5 0l4 0l6 0l13 1l5.5 0.5l3.5 0.5l3 1l3 1l3 1.5l3 1.5l4.5 2.5l6 4l4.5 3l2.5 2.5l2 2.5l2 2l1.5 2.5l1 2.5l1 2l1 2l0.5 2.5l1 3l1 5l2 8l1 5.5l1.5 4l1.5 5.5l7 20l1.5 4.5l0.5 2l0.5 1M-1169 250l-1 0l-2 0.5l-5 1.5l-159 38l-6 2l-3.5 1.5l-3.5 2.5l-4 3l-3.5 2.5l-3.5 2.5l-5 3l-50 29l-5.5 3l-3.5 1.5l-4.5 2l-6 2l-4.5 1.5l-4 0.5l-6 -0.5l-93 -11l-5.5 -0.5l-3 -0.5l-3 0l-2 0l-2.5 0l-3 0.5l-3 0.5l-3 1l-2.5 0.5l-1.5 0.5l-1 0M-1430 -167l-1 0l-1 0.5l-2.5 0.5l-3 1l-3 1l-3.5 1.5l-4.5 3l-80 51l-5 3l-3.5 1.5l-6 1l-13 2l-5.5 1l-2.5 0.5l-2 1l-2 1l-1 0.5l-0.5 1l-0.5 0M-301 -104l-1 -0.5l-2 -0.5l-4.5 -1l-7 -2l-5.5 -1l-4 0l-6 1l-36 9l-5.5 1.5l-2.5 1l-1.5 1.5l-1 1l-1.5 1.5l-2.5 1l-5 1.5l-62 16l-5 1l-2.5 0.5l-2 0l-2 0l-2 0l-2.5 0.5l-5 1l-7 2l-5 1l-3 0.5l-3 0.5l-2 0l-2 0l-1 0l-0.5 0M-230 -145l-0.5 0l-0.5 0l-1 0.5l-2 0l-2 0l-2.5 -0.5l-5 -1.5l-67 -22l-4.5 -1.5l-2 -0.5l-1 -0.5M-318 -171l-1 0l-2 0l-5 0.5l-12 0l-6 0.5l-4 0.5l-6 0.5l-32 5l-5 0.5l-2 0.5l-1 0M-795 -44l-13 -72M-394 -163l-54 5M-230 -145l-12 -53M-158 161l-20 -85M-12 379l0 -0.5l0 -1l0 -2l0 -2l-0.5 -3l-0.5 -3l-1 -5l-17 -63l-1.5 -5.5l-0.5 -3l-0.5 -3l0 -3l-0.5 -2l0 -1.5l0 -0.5M566 454l0 -1l-0.5 -2l-1 -5l-10 -44l-1 -6l-1 -4l-2 -5.5l-6 -21l-2 -5.5l-1 -4l-1 -6l-3 -13l-1 -6l-1 -4l-1.5 -5.5l-33 -126l-1.5 -5.5l-1 -4l-2 -5.5l-8 -26l-1.5 -4.5l-0.5 -2l-0.5 -1M425 127l-68 11M336 615l1 -0.5l2 -0.5l4.5 -1l110 -29l5.5 -1.5l4 -1l6 -1l36 -7l6 -1l4 -1l5.5 -1.5l64 -17l4.5 -1l2 -0.5l1 -0.5M334 399l-51 -197M-304 -113l16 59M216 219l0.5 1l0.5 2l1 4l2 7l1.5 5l0.5 4l1.5 6l3 19l1 6l1 4l1.5 6l29 113l1.5 6l1 4l1.5 6l18 81l1.5 6l1 4l1.5 6l10 40l1.5 6l1 3l1.5 3l1 3l1.5 3l1 3l1.5 5.5l5 20l1.5 4.5l0.5 2l0 1M-1246 -104l0.5 1l0.5 2l1.5 3.5l2 5l1.5 4.5l1.5 4l1.5 6l22 89l1 5.5l0.5 3.5l0 3l0 2l-1 2.5l-2 2.5l-2.5 3l-4 3l-2.5 2l-1.5 1.5l-1 0.5M-39 637l0 -1l-0.5 -2l-1.5 -5l-7 -28l-1.5 -6l-1.5 -4l-2 -5.5l-5 -15l-2 -4.5l-0.5 -2l-0.5 -1M-61 563l-0.5 -1l-0.5 -2l-1 -4.5l-9 -34l-1.5 -5l-1.5 -2.5l-1.5 -2l-2 -2l-1.5 -2l-1.5 -2.5l-1.5 -5l-6 -23l-1 -4.5l-0.5 -2l-0.5 -1M-259 496l-124 29M-642 120l-500 124M-1228 40l0.5 0.5l1 1l1 1l2 2l1.5 2l1.5 3l1.5 5l27 105l1 4.5l0.5 2l0.5 1M-1199 170l0 -1l-0.5 -2l-1.5 -5l-25 -105l-1.5 -5.5l-0.5 -3l0 -3l0 -2l0 -2l0 -1l0 -0.5M115 -463l-1 0l-2 0l-5 -0.5l-27 -1l-5.5 -0.5l-3.5 -0.5l-3 -0.5l-3 -1l-2 -0.5l-1.5 -0.5l-0.5 0M134 -331l-0.5 0l-1 0l-2 -0.5l-2 0l-2.5 -0.5l-3 -1l-5.5 -2l-55 -21l-5.5 -2.5l-3 -2.5l-2.5 -3l-3 -3l-2.5 -3.5l-2.5 -2.5l-4.5 -4l-8 -7l-4.5 -4l-3 -2.5l-4 -4.5l-11 -12l-3.5 -4l-1.5 -1.5l-0.5 -0.5M-33 -459l0 -0.5l-0.5 -0.5l-0.5 -1l0 -1l-1.5 -2l-1.5 -2l-3 -4l-190 -231l-3 -3.5l-1.5 -1.5l-0.5 -1M-114 -683l0.5 1l1 1.5l2.5 4.5l19 35l3 5l2 3.5l3 4.5l4 5l3 4.5l2.5 3l3.5 4.5l99 119l4 4.5l2.5 2.5l4.5 4l7 6l4 3l2.5 1.5l2.5 1.5l2 0l1.5 0.5l1 0.5l0.5 0M233 -454l0.5 0l1.5 0.5l2 0.5l3 0l2 -0.5l2 -1.5l1.5 -5l40 -219l1 -5l0.5 -2l0 -1M120 -524l0 -1l0 -2l0.5 -5l0 -11l0.5 -6l0.5 -4l1.5 -6l11 -49l1.5 -6l0.5 -4l0 -6l0 -18l0 -5l0 -2l0 -1M77 -571l-1 49M114 -451l0 -1l0 -2l0.5 -4l0 -6l0 -5l0 -4l-0.5 -6l-1 -13l-0.5 -5l-0.5 -2l0 -1M664 165l1 0l2 0l5 0l16 1l6 0l4 0l6 0.5l117 11l5 0l2 0.5l1 0M-95 55l1 0l2 -0.5l5 -1.5l52 -12l5.5 -0.5l2 1.5l2.5 5l15 62l1.5 5l0.5 2l0 1M-1570 -96l-214 39M-95 55l-349 87M-444 142l-64 15M-34 281l65 -17M-691 367l-20 -77M-38 -552l-0.5 -0.5l-1.5 -1.5l-3.5 -4l-40 -44l-4 -4.5l-2.5 -3l-3 -3.5l-3 -4l-2.5 -3.5l-2.5 -3.5l-3 -5l-10 -16l-3 -5.5l-2 -3.5l-2.5 -5.5l-20 -43l-2.5 -5.5l-1.5 -4l-1.5 -4.5l-2 -5l-1 -4.5l-1 -4l-1.5 -6l-1 -8l-1 -5l-0.5 -2l0 -1M114 -451l0.5 -0.5l0.5 -0.5l1 -1l1 -2l1 -1.5l1 -2.5l1 -2.5l0 -3l0.5 -3l0.5 -3.5l0 -6l-1 -39l0 -5l0 -2l0 -1M626 139l0.5 -0.5l1.5 -1.5l2 -2l3 -2l2.5 -2l2 -1.5l1.5 -0.5l2 0l1 0l1.5 1l1.5 0.5l1 1l1.5 1.5l1 2.5l1.5 5l4 14l1.5 5l1.5 2l2 1.5l2 1l1.5 0.5l1 0.5l0.5 0M63 -413l-0.5 0.5l-1 1.5l-1 2l-2 3l-1.5 3l-1.5 3l-2.5 5.5l-10 24l-2 4.5l-0.5 2l-0.5 1M108 -434l-0.5 0.5l-1.5 0.5l-2 1l-2 1l-3 1l-2.5 1l-3 1l-3 1l-3 0.5l-3.5 0l-4 0l-5 0l-4 -1l-3.5 -1.5l-4.5 -3l-20 -16l-3.5 -3l-1.5 -1.5l-1 -0.5M11 -597l0.5 0.5l1.5 1.5l3.5 4l20 21l4 4.5l2.5 3l4 4.5l32 40l3.5 4l2.5 3l3 2.5l2 2l2 2l1.5 1l0.5 0.5M744 234l1 0l2 -0.5l5 -0.5l21 -2l6 -0.5l4 0l6 0.5l150 16l5 0.5l2 0.5l1 0M-186 -495l-31 -39M-479 -8l1 -0.5l2 -0.5l4.5 -1l104 -27l5 -1l3 -0.5l2 -0.5l2 0l2 0l3 -0.5l5.5 -1.5l49 -11l5 -1.5l2 -0.5l1 0M-508 157l-33 -140M-375 -97l-0.5 0l-0.5 0l-1 0l-2 0l-2 0.5l-2.5 0.5l-5 1l-52 14l-5.5 1.5l-3.5 1.5l-3.5 1l-4 2l-2.5 1l-1.5 0.5l-1 0.5M-1688 109l1 0l2 -0.5l5 -1.5l90 -21l5.5 -2l2.5 -1.5l2 -2.5l2 -2l1 -2l0.5 -1.5l0.5 -0.5M-360 -39l-25 -95M81 -641l-4 70M109 -616l-9 46M-217 -534l-21 -28M-392 495l-28 -116M11 -597l-0.5 0.5l-1.5 1.5l-4 3.5l-10 9l-4 4l-2 2l-1.5 1.5l-1 2l-0.5 1l-1 0.5l0 0.5M-27 -665l0.5 1l0.5 2l2 4.5l4 8l2.5 5.5l1.5 3.5l3 5.5l20 31l2.5 4.5l1 1.5l0.5 1M37 -453l-0.5 -1l-1 -1.5l-3 -4l-28 -41l-3.5 -5l-2.5 -3l-3.5 -4.5l-28 -33l-3 -3.5l-1.5 -1.5l-0.5 -1M-357 205l20 74M-314 356l1 0l2 -0.5l5 -1.5l99 -25l6 -1.5l4 -1.5l5.5 -2l10 -4l5.5 -2l4 -1.5l5.5 -1.5l82 -21l5.5 -1.5l3 -0.5l3 0l3 0l3 -0.5l3 -0.5l5.5 -1l8 -2l5 -1.5l3 -1l3 -1.5l2 -1l2 -1l1 -0.5l0.5 -0.5M-314 356l-0.5 0l-1 0l-2 -0.5l-2 0l-3 0l-3 0.5l-5.5 1l-81 20l-5 1.5l-2 0.5l-1 0M-8 117l20 73M592 551l15 57M707 -554l-1 0l-2 0l-3.5 0.5l-6 0l-4 0l-2.5 -1l-1.5 -2l-1 -2l-1.5 -1.5l-2.5 -1l-5.5 0.5l-48 9l-5 1l-2 0.5l-1 0M-117 -401l0 -0.5l0.5 -0.5l0.5 -1l0 -1l0 -1.5l-1 -1.5l-2 -1.5l-3 -2l-2.5 -2l-2.5 -2.5l-4 -4.5l-43 -55l-3.5 -4.5l-2 -3l-1.5 -2.5l-2 -2l-1 -2l-1 -2l-0.5 -1.5l0 -1l-0.5 -1l0 -0.5l0 -0.5M12 190l139 -39M216 219l-70 17M1008 195l-1 0l-2 -0.5l-5 -0.5l-85 -9l-6 -1l-4 0l-6 -0.5l-62 -5l-5 -0.5l-2 0l-1 0M581 512l11 39M997 476l-1 0l-2 0l-5 -0.5l-31 -2l-6 0l-4 0l-6 0.5l-55 5l-6 1l-4 0.5l-6 1l-35 6l-6 1l-4 1l-6 1.5l-50 12l-5 1.5l-2 0.5l-1 0M762 505l-1 0.5l-2 0.5l-4.5 1l-142 37l-5.5 1.5l-3.5 1l-3.5 1.5l-3 1l-2.5 1l-1.5 0.5l-1 0.5M949 609l0 -43M291 124l44 -6M42 -72l-12 -55M33 -127l-45 10M8 -64l-13 -54M-239 234l-0.5 -0.5l-1 -0.5l-2 -1l-2 -1l-3 -1l-3 -0.5l-5.5 0l-24 2l-5 0.5l-2 0l-1 0M-1572 337l-0.5 0.5l-0.5 1l-1 2l-1 2l-2 2l-2 1l-2 1l-3 0l-2 0l-1.5 0l-1.5 -0.5l0 -1l-0.5 -1l0 -1l0.5 -1l0 -1l1.5 -1.5l1.5 -1l2 -1l3 -1l2 -0.5l2 -0.5l2 0.5l1 0l1 0.5l0.5 0.5l0.5 0M-385 -134l-9 -29"/></g><g class="m-mid"><path d="M-1612 -174l-1.5 0l-3 0.5l-6.5 1l-11 1l-8 1l-6 0.5l-9 0l-11 0l-9 0l-6 0.5l-9 0.5l-38 4l-9 1l-6 0.5l-9 1.5l-89 17l-9 1.5l-6 1.5l-8.5 2l-30 8l-8.5 2l-6 1.5l-9 1.5l-36 7l-9 1.5l-6 1l-9 1.5l-35 5l-9 1.5l-6 0.5l-9 0.5l-37 2l-9 0.5l-6 1l-5.5 1l-6 2l-5.5 1.5l-5.5 2l-8.5 3l-14 6l-7 3l-2.5 1l-1.5 0.5M6 -28l-1.5 0l-3 -0.5l-6.5 0l-11 -1l-7.5 0l-5.5 0.5l-5 0.5l-4 1l-3.5 0.5l-2.5 1l-1 0M-346 -548l-1.5 0l-3 0.5l-7.5 1l-56 7l-9 0l-5.5 -1l-7.5 -4l-82 -53l-6.5 -4.5l-3 -2l-1.5 -2l-1 -1l-1 -2.5l-1 -3.5l-1 -4.5l-1 -6l-1 -4l-0.5 -3l-0.5 -1.5M1059 -298l0 -0.5l-0.5 -1.5l-0.5 -2l-1 -3l-0.5 -3l-0.5 -3.5l0 -4.5l0 -4l-1 -5l-2 -4.5l-2.5 -4.5l-4 -5l-3.5 -4.5l-3.5 -5l-5 -7.5l-32 -48l-5 -7l-3 -4.5l-3 -4l-3 -4l-3.5 -3.5l-3.5 -4l-6 -6l-19 -18l-6 -6l-3.5 -5l-4.5 -7.5l-36 -67l-3.5 -7.5l-1 -4.5l0 -4l0 -4l2 -3l3 -3l5 -2l6 -2l6 -2l5 -3l6.5 -4.5l8 -7l6 -5l4.5 -4.5l5.5 -5l6 -7l5 -5.5l3 -5l3 -5l2 -5l2 -5.5l2 -5.5l2 -7.5l2 -9l1.5 -7l1 -4.5l0.5 -3.5l0 -3l0 -3.5l-0.5 -3.5l-1 -4.5l-1 -4l-1.5 -5l-2 -4l-2 -5l-2 -4l-2.5 -4l-2.5 -3.5l-2.5 -3l-3 -2l-3.5 -1.5l-4 -0.5l-8.5 0.5l-73 13l-9 1.5l-6 0.5l-7 1l-8 1l-6.5 1l-5.5 1l-5 1l-5 1l-3.5 1l-2.5 0.5l-1 0.5M1055 -428l-1 -0.5l-2 -1.5l-3 -2l-4 -3l-3.5 -2l-3 -2l-3 -1l-2 -1l-3.5 -0.5l-4 -1l-8 -1.5l-50 -7l-7.5 -1.5l-3 -0.5l-1.5 0M934 -488l-0.5 1l-1 2l-1.5 3.5l-2 4l-1.5 4l-1.5 3.5l-1 3l-1 3l-0.5 3.5l0 4.5l0.5 8l1 12l1 9l1 6l1 6l1 6l1.5 5.5l1.5 5l1 4.5l2 4l1.5 4l2 3.5l2.5 3.5l2 4l2.5 2.5l2 2.5l1.5 2l1 1l2.5 1.5l3.5 1.5l5 2.5l7 2l6 3l5.5 2.5l7.5 5l15 11l8 4l5 1l5.5 0l6 -1l4.5 -1.5l4 -1.5l3 -1.5l2 -2l1.5 -1l1 -1l0.5 -0.5M-406 -608l9 66M-294 -230l0 1l0 2l0 2.5l0 4l0 3l0.5 2.5l0.5 1.5l0 1l1 1l1 1l1 0.5l1 1l2.5 1l3.5 1l7.5 1.5l22 5l8.5 1.5l5 1l5 1l5 0l3.5 0.5l2.5 0.5l1 0M107 525l-1.5 0.5l-3 0.5l-7 2l-79 20l-8 2l-4 0.5l-3.5 0l-2 0l-2.5 -1l-2 -1l-1.5 -1.5l-1 -2l-1 -1.5l-0.5 -1l-0.5 -0.5M-375 420l-13 -49M696 382l75 311M246 4l1.5 0.5l3 0.5l7.5 1l83 15l9 1.5l6 1.5l8.5 2.5l18 6l8.5 2.5l5.5 2.5l8.5 3.5l210 93l7.5 3.5l3.5 2l3 1.5l2 1l2 2l1.5 2l1.5 2l1 3l1.5 3.5l1.5 4l2 8l49 196l2 7l0.5 3l0.5 1.5M-51 -50l24 89M55 360l-24 -96M0 373l1.5 -0.5l3 -0.5l7 -2l25 -7l7.5 -2l4 -0.5l2.5 -0.5l2 0l1 0l1 0l0.5 0M326 30l-1.5 -0.5l-3 -0.5l-7.5 -1l-45 -8l-8.5 -2l-4 -2.5l-3.5 -2.5l-3 -4l-2 -2.5l-1.5 -1.5l-0.5 -1M-820 77l1.5 -0.5l3 -0.5l7 -1.5l439 -102l8.5 -2l6 -1.5l8.5 -2l142 -36l7 -2l3 -0.5l1.5 -0.5M-170 -80l39 -11M-193 -72l0.5 1.5l0.5 3l2 7l7 29l2 7.5l1 3l1 2l1 1l0.5 0.5l1 0.5l1 1l1 0l1 0.5l1 0l1.5 0l1 0l1.5 -0.5l1 -1l1.5 -1l1 -2l2.5 -1l3.5 -1.5l7.5 -2.5l17 -4l7.5 -2l3.5 -0.5l2.5 0.5l2 0l1 0.5l0.5 0.5l0.5 0M-639 -225l1.5 0l3 -0.5l5 -1l7 -1l5.5 -1l4 -1l3 -1l2 -1l2 -1.5l1.5 -2.5l1.5 -3l2 -4l1 -2.5l0.5 -2l0.5 -1M-933 104l113 -27M696 382l-380 93M316 475l-61 15M-818 85l-2 -8M-1611 -50l0 1l0 2l0 3.5l0 4l-1.5 4l-2.5 4l-6 5l-76 50l-6 5.5l-1.5 4.5l0.5 8l13 56l2 7l0.5 3l0.5 1.5M-165 -60l-5 -20M-129 -83l4 18M-865 -158l-37 -1M694 374l2 8M-131 -91l1.5 -0.5l3 -0.5l7 -2l30 -7l8 -2.5l5 -2l4 -2l4 -2l3.5 -2.5l3 -2l3 -2.5l2 -2l2.5 -2l2.5 -1.5l2 -1l2 -1l3 -1l4 -1l7.5 -2l57 -13l7 -2l3 -0.5l1.5 -0.5M-77 -165l-0.5 0l-0.5 -0.5l-1 -0.5l-2 -1l-2.5 0l-3.5 0l-8 1l-28 4l-8 1.5l-4 1l-3 1.5l-2 1l-1.5 2l-1 2l-1 2l0 3l0 3.5l0.5 4l2 8l7 30l2 7l0.5 3l0.5 1.5M1000 372l-1.5 0l-3 0l-7.5 0l-75 2l-9 0l-6 0l-9 0.5l-181 7l-7.5 0.5l-3 0l-1.5 0M103 518l1.5 -0.5l3 -0.5l7 -1.5l106 -25l8.5 -2l6 -1l8.5 -2.5l439 -108l7 -2l3 -0.5l1.5 -0.5M694 374l1.5 0l3 0l7.5 -0.5l231 -7l9 -0.5l6 0l9 0l73 -1l7.5 0l3 0l1.5 0M55 360l0 0l1 0.5l0.5 0.5l1 0l1 1l1 1l1 1l1 2l1 2.5l1.5 3.5l2 7.5l3 15l2.5 8.5l1.5 6l2.5 8.5l5 18l2.5 8l1.5 4.5l1.5 4l2 4l1 4l1.5 4.5l2 8l8 34l1.5 7l0.5 3l0.5 1.5M-932 111l-256 64M-129 -83l-689 168M39 -139l-1.5 0.5l-3 0.5l-7 1.5l-65 15l-8 2.5l-5.5 2.5l-5.5 4.5l-6 5l-5.5 4.5l-5 2.5l-8.5 3.5l-36 10l-7 2.5l-3 0.5l-1.5 0.5M103 518l4 7M-818 85l-114 26M-1119 440l-1.5 0.5l-3 0.5l-7 2l-57 16l-8.5 2l-6 1.5l-8.5 2l-29 7l-8.5 1.5l-6 1l-9 1l-85 7l-9 0.5l-6 0.5l-9 0l-124 -2l-9 0.5l-6 0.5l-8.5 2l-19 4l-7.5 2l-4 0.5l-3 -0.5l-2 0l-2 -1l-1.5 -1l-1.5 -1l-2 -1l-1.5 -2.5l-1.5 -3.5l-1.5 -5l-2 -6l-1.5 -5l-1.5 -4l-1.5 -2.5l-2 -2l-1 -1l-0.5 -1l-0.5 -0.5M-820 77l-0.5 -1.5l-1 -3l-2.5 -7l-34 -104l-3 -8.5l-1 -5l-1 -4.5l-1 -4l-0.5 -5l-0.5 -5l-0.5 -5.5l-1 -6l0 -6l0 -6l0 -9l2 -78l0.5 -8.5l0.5 -4.5l0.5 -3.5l0 -3l1.5 -3l1.5 -3.5l2 -3.5l3 -4l3 -3l3 -2.5l3 -1.5l4 -1l4 -1l4.5 -0.5l8.5 0l174 -1l7.5 0l3 0l1.5 0M-143 -87l14 4M-193 -72l23 -8M-1190 167l1.5 -0.5l3 -0.5l7 -1.5l80 -19l8.5 -2l6 -1.5l8.5 -2l131 -33l7 -2l3 -0.5l1.5 -0.5M-599 -248l-1.5 0l-3 0l-7.5 0.5l-32 1l-9 0.5l-5.5 0.5l-5 0.5l-5 1l-5 0.5l-5.5 0l-6 0l-7 0l-4.5 -0.5l-3 0l-1.5 0M-517 -597l0 -0.5l1 -1l0.5 -1l1 -2l1.5 -1.5l2 -1l3 -1l3 -1l4 0.5l4 1l7 4l39 25l6.5 5.5l2.5 4.5l1.5 5.5l1 6l0 4.5l0.5 3l0 1.5M-974 -244l-1.5 0l-3 0l-7.5 -0.5l-37 -1l-9 -0.5l-6 0l-9 0l-128 2l-7.5 0l-3 0l-1.5 0M-974 -244l0.5 0l1.5 -0.5l2 -0.5l2 -1l3.5 -0.5l3.5 -0.5l4 0l5 0l5 0l5.5 0l8.5 0.5l18 0l8.5 0.5l4.5 0.5l4 0.5l3 1l2.5 0.5l1.5 0.5l1 0M-700 -244l-190 1M-608 -225l-1 0l-2.5 0.5l-3.5 0.5l-4 0l-4.5 0.5l-4 0l-3.5 -0.5l-3 0l-2.5 -0.5l-1.5 -0.5l-1 0M-890 -243l-1 0l-2 0.5l-3.5 0.5l-4 1l-5 0.5l-5 0l-8.5 0.5l-36 -1l-8 0l-4 -0.5l-2.5 -0.5l-2 -1l-1 -0.5l-1 -0.5l-0.5 0M-700 -244l1.5 -0.5l3 -0.5l7 -1.5l33 -7l8.5 -1.5l6 -0.5l8 -0.5l9 0l6.5 0l3 0l1.5 0M-1256 -228l1 -0.5l1.5 -1l2.5 -1l3 -2l3.5 -1.5l3.5 -1.5l4 -1.5l4 -1l4.5 -1.5l5 -1l6 -1l7 -1l6 -1l4.5 -0.5l4 0l4 0l2.5 0l1.5 0l1 0M-1187 -244l-1.5 0.5l-3 0.5l-7 2l-31 9l-8 2l-5 1l-4 0.5l-4 0l-2.5 0.5l-2 0l-1 0M-1612 -174l1.5 -0.5l3 -1l7 -2l31 -10l8.5 -2.5l6 -1l9 -1.5l33 -3l8.5 -1l5 0l5 0.5l4 0l3.5 0.5l2 0.5l1 0M-1484 -195l-1 0l-2 1l-2.5 0.5l-4 1l-4 1l-5 1l-8.5 1.5l-89 13l-7.5 1.5l-3 0.5l-1.5 0M-1256 -228l-1 0.5l-2 0.5l-3.5 1l-4 1l-5 1.5l-5 1l-8.5 1l-170 24l-8.5 1l-5 0.5l-5 0.5l-4 0l-3.5 0.5l-2 0l-1 0M238 -660l0 1.5l-0.5 3l-1.5 7.5l-19 113l-1.5 9l-1 6l-2 8.5l-18 82l-2 8.5l-1.5 6l-2 6l-2 6l-2 6l-1.5 6l-2.5 8.5l-15 60l-2 7l-0.5 3l-0.5 1.5M142 -313l0.5 -1.5l1 -2.5l2.5 -7.5l46 -125l2.5 -8.5l2 -6l2 -9l17 -87l2 -9l1 -6l1.5 -9l2 -16l1.5 -7.5l0.5 -3l0 -1.5M-933 104l1 7M39 -139l0.5 1.5l0.5 3l2 7l18 70l2.5 7.5l2 4l2.5 3l2 2l3.5 2l4 2l7.5 3.5l35 13l8.5 3l5.5 1.5l9 2l92 16l7.5 1l3 0.5l1.5 0.5M35 -144l1.5 -0.5l2.5 -1.5l7 -3l15 -7l7.5 -3.5l3.5 -2.5l2.5 -2l2 -2l1 -1.5l1 -1l0.5 -0.5M163 -311l-0.5 1.5l-0.5 3l-1 4l-2 6l-1.5 5.5l-2 5.5l-3.5 8.5l-12 28l-4 8l-2.5 5.5l-4 8.5l-27 56l-4 7.5l-2 3.5l-1.5 2l-1 2l-1.5 1l-1.5 1.5l-1.5 1l-2 1l-2.5 1l-4 1.5l-7.5 2l-23 5l-7 2l-3 0.5l-1.5 0.5M79 -169l0.5 -1.5l1.5 -2.5l3 -7l49 -105l3.5 -8l1.5 -5l1.5 -4.5l1 -4l0.5 -3.5l1 -2l0 -1M35 -144l4 5M316 475l0 0M255 490l0 0M255 490l-148 35M107 525l19 76M39 -139l0.5 -0.5l0.5 -0.5l1 -1l2 -2l2 -1.5l3.5 -2l7 -3l11 -5l6.5 -3.5l3 -2.5l2 -2.5l0 -2l0.5 -2l0.5 -1.5l0 -0.5M-312 -722l2 8.5l4 7.5l4 8l4.5 7.5l4 7.5l4 8l3.5 8l3.5 8l3.5 8l3 8l2 8.5l0.5 9l0 8.5l-0.5 8.5l-0.5 9l0.5 8.5l0.5 9l1.5 8.5l2.5 8.5l2.5 8l3 8.5l3.5 8l4.5 7.5l4 7.5l4.5 8l4.5 7.5l5 7l5 7l5 7l5.5 7l5.5 6.5l6 6.5l6.5 6l6 6l6.5 6l6.5 6l6.5 6l6.5 6l6.5 5.5l7 5l7 5.5l7.5 5l7 4.5l8 4l8 3l8 3l8.5 1l9 -0.5l8.5 -1l9 -1l8.5 -1l8.5 -1l9 -0.5l8.5 0l8.5 1l8.5 2l8.5 3l8 3l8 3l8 4l7.5 4.5l7 4.5l7.5 5.5l7 5l6.5 6l6.5 5l7.5 5l7.5 4l8 3.5l8.5 3.5l8 3l8 3.5l8 3l8 3.5l8.5 3.5l8 3l8.5 2.5l8 2.5l8.5 2.5M-199 -219l-6.5 0l-6.5 -0.5l-6.5 0l-6.5 0l-6.5 -0.5l-6.5 0l-6.5 -0.5l-6.5 0l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -1l-6.5 -0.5l-6 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6 -1l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6.5 -1l-6.5 -0.5l-6.5 -0.5l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0l-6.5 0"/></g><g class="m-major"><path d="M-1649 281l450 -111M-1199 170l0.5 0l1 -0.5l2 -0.5l2 -1l2 0l1.5 0.5l1 1.5l0 2l0.5 1.5l0.5 1l0 0.5M-1197 177l-2 -7M-1036 672l-1 -2l-2.5 -4.5l-6.5 -11l-23 -40l-7.5 -13l-4.5 -9l-4 -9l-4 -9l-3.5 -9l-3.5 -9.5l-4 -14.5l-92 -345l-3 -12.5l-1.5 -4.5l-0.5 -2.5M689 105l-4 10M-1188 175l0.5 2.5l1.5 5l3 12l89 342l4 14l2.5 8.5l2.5 7.5l3 7l3 7.5l4 8l6.5 12.5l11 20l7 12.5l5 8l4.5 8l5 7l3.5 5.5l2.5 3.5l1 2M-1188 175l-9 2M-1197 177l-551 136M1241 245l-2.5 -1l-4.5 -1.5l-11.5 -5l-55 -21l-14 -5.5l-9.5 -3l-14 -4.5l-22 -6l-14 -4l-10 -2l-14.5 -3l-200 -33l-14.5 -3l-10 -1.5l-14.5 -3l-75 -15l-14.5 -3l-10 -2.5l-12.5 -3.5l-16 -4l-10.5 -3l-4.5 -1.5l-2.5 -0.5M685 115l-2.5 -0.5l-4.5 -1.5l-12 -3.5l-43 -12l-14 -4.5l-9.5 -3l-14 -5l-70 -26l-13.5 -5.5l-9.5 -4l-13.5 -6.5l-134 -66l-12.5 -8l-7 -6.5l-5.5 -7.5l-5 -9l-4.5 -7.5l-4.5 -6l-4.5 -4.5l-4 -4l-5.5 -3.5l-7 -3.5l-12.5 -6l-110 -48l-13 -5l-7 -2.5l-5.5 -1.5l-5 0l-4.5 -0.5l-4.5 0l-4.5 0.5l-4 1l-3.5 0.5l-2 0.5l-1 0M112 -150l1.5 0l3 -0.5l4 -0.5l6 0l6.5 0.5l7.5 1.5l13 5l116 49l13.5 6.5l8 4l7.5 4.5l7 5l5.5 4l5 4l3 4l2 3l2 3.5l1.5 3.5l1.5 4l2 4l3 4l5.5 4l11.5 6.5l137 64l13.5 6l9.5 4l13.5 5.5l70 26l14 5l9.5 3l14 4.5l41 12l12 3.5l4.5 1.5l2.5 0.5M-1616 280l-2 -7M689 105l2.5 1l4.5 1.5l10.5 3l15 5l13 3.5l9.5 2.5l14.5 3l212 38l12 2l5 1l2.5 0.5M-454.5 -826.5l7 7.5l6.5 8l7 8l6.5 7.5l7 8l6.5 7.5l7 8l6.5 8l6.5 7.5l6.5 8l6.5 8.5l6 8l6 8.5l5.5 8.5l5.5 8.5l5.5 9l5.5 8.5l5.5 9l5 9l5 9l4.5 9l4.5 9.5l4.5 9.5l4 9.5l4 9.5l3.5 9.5l3.5 9.5l3 10l3 10l3 9.5l3 10l3 10l3 10l3 9.5l2.5 10l3 10l3 10l3 9.5l3 10l3 10l3 10l3 9.5l3 10l2.5 10l3 10l3 9.5l3 10l3 10l3 10l3 9.5l3 10l3 10l3 10l2.5 9.5l3 10l3 10l3 10l3 9.5l3 10l20.5 62l16 48M-188 -222l38 -2l66 -3"/></g><g class="m-shore"><path d="M994 -637l-0.5 1l-1 2.5l-2 6l-6 17l-3 7l-3 4l-5 5l-51 45l-4.5 4.5l-1 2.5l0 2.5l1 2l0 2l-1.5 2l-3.5 2l-4 2l-4 0.5l-3.5 -1.5l-4.5 -5l-6 -11l-4.5 -5.5l-3.5 -2l-7 -0.5l-107 13l-6.5 0.5l-2.5 1l-1 0.5l0 1l-1 0.5l-2.5 0.5l-6.5 1l-41 5l-6.5 1l-2.5 0.5l-2 0.5l0 1l-1 0.5l-0.5 0l-1 -0.5l-1 0l-1.5 -0.5l-2.5 0l-2.5 0l-4 0l-2.5 0l-1.5 0l-1 -0.5l0 0l-1 -0.5l-2.5 0l-5.5 1l-8 1l-6.5 1l-5 0.5l-7 0l-9 0l-6.5 -1l-4.5 -1.5l-5.5 -4.5l-61 -64l-4.5 -4.5l-1.5 -1.5l-1 -1M279 -607l0 1l-0.5 2.5l-1.5 6.5l-30 158l-2 7.5l-1.5 4.5l-3 7l-24 50l-3.5 7l-2 4.5l-3 6.5l-26 64l-3 6.5l-2 4.5l-2.5 5l-2 5l-2 3.5l-1.5 2.5l-1.5 1.5l-1 0l-1.5 1.5l-1.5 2.5l-2.5 5.5l-7 14l-2 6l-0.5 2.5l0.5 2l2 1l1 1l0.5 0.5l0.5 1l0 0l0 0.5l-0.5 0.5l-0.5 0.5l0 0l-0.5 0.5l-0.5 0l0 0M1000 -298l-0.5 -0.5l-1.5 -1l-2 -1l-3 -2l-2.5 -2l-3 -3l-4.5 -4.5l-5 -7l-4.5 -5l-3 -4l-4.5 -6l-36 -51l-4 -6l-2 -4.5l-2 -7.5l-2 -10l-1.5 -7.5l-0.5 -4l-0.5 -4l0 -4l-0.5 -4l0 -4.5l0 -5l0 -7l0.5 -5.5l0.5 -5l1 -6.5l2 -9l0.5 -6.5l-0.5 -4.5l-2.5 -7l-6 -11l-2 -6.5l1 -3.5l2.5 -3l4 -2l3.5 -1l3.5 1l4 5l14 26l4.5 5.5l3.5 2l7 0.5l36 -3l6.5 -0.5l2.5 -0.5l1 0M148 -208l0 0l0 1l0 0.5l0 1l-0.5 0.5l-1 0.5l-1.5 -0.5l-2 0l-2 0.5l-2 2l-3.5 5.5l-6 12l-1.5 6l1 3.5l5 4l175 82l6 2l3.5 -1.5l4 -5l9 -19l4 -5l3.5 -1.5l6 1.5l164 76l5 3.5l1.5 3.5l-1.5 6l-9 20l-1.5 6l1.5 3l5.5 3.5l144 55l7 2.5l5 1.5l7 2l25 6l7 2l5 1l7.5 1.5l313 58l6.5 1.5l2.5 0.5l1 0M-1068 -262l0 -6M885 111l139 25M-226 -234l-0.5 -1l-1 -2.5l-2 -6M154 -220l-6 12M-1200 -259l-1 -6M-463 -259l-1 0l-2.5 -0.5l-6.5 -0.5l-66 -5l-7.5 -0.5l-5 -0.5l-7.5 0l-586 4l-7.5 0l-5 0.5l-7.5 0.5l-44 3l-7.5 1l-5 0.5l-7.5 1l-102 15l-6.5 1l-2.5 0.5l-1 1l0 0l-1 1l-2.5 0.5l-6.5 1l-68 10l-6.5 1l-2.5 0l-1 -0.5l0 -1l-1 -0.5l-2.5 0l-6.5 1l-247 37l-5 1l0 0l5 -1l247 -37l6.5 -1l2.5 0l1 0.5l0 1l1 0.5l2.5 0l6.5 -1l68 -10l6.5 -1l2.5 -0.5l1 -1l0 0l1 -1l2.5 -0.5l6.5 -1l102 -15l7.5 -1l5 -0.5l7.5 -1l44 -3l7.5 -0.5l5 -0.5l7.5 0l586 -4l7.5 0l5 0.5l7.5 0.5l66 5l6.5 0.5l2.5 0.5l1 0M-463 -259l237 25M-226 -234l1 0l2.5 0l6.5 -0.5l45 -3l7.5 -0.5l5 -1l6 -1l7 -2l6 -1.5l5 -1.5l7 -2.5l34 -12l7 -2l4 -1l3.5 -0.5l3 0l3.5 0l3 0.5l3 0.5l3 1l3 0l2.5 -0.5l2.5 -1l2 -2l2.5 -0.5l3 1l3 2.5l4 4l3.5 3.5l4 2.5l6.5 4l16 7l6 2l3.5 -1.5l4 -5l6 -12l2.5 -6l1 -3l0 -2l-1 -1l0 -1l0 -0.5l1 -0.5l1 0l1 0l0.5 0l0.5 0M21 -282l-6 11M154 -220l-6 12M154 -220l-133 -62M21 -282l-6 11M15 -271l4 1M19 -270l0 0M19 -270l129 62M-323.5 -492.5l-3 -7l-3 -4l-5 -5l-18 -16l-6 -4l-4.5 -1.5l-7 0l-51 6l-7.5 0l-4.5 -1l-6.5 -3.5l-117 -79l-4.5 -2.5l0 0l4.5 2.5l117 79l6.5 3.5l4.5 1l7.5 0l51 -6l7 -1.5l4.5 -2l6 -4l26 -21l5 -5.5l2.5 -4l2.5 -6.5l10 -44l1.5 -4.5l0 0l-1.5 4.5l-10 44l-2.5 6.5l-2.5 4l-5.5 5.5l-15 12l-4 5l-0.5 3.5l3.5 5.5l12 13l5 3.5l3.5 0l4 -3.5l5 -7l3.5 -5.5l2 -4.5l2 -7.5l5 -20l1.5 -7.5l0.5 -5l1 -7.5l1 -17l0.5 -5l0 0l-0.5 5l-1 17l-1 7.5l-0.5 5l-1.5 7.5l-5 20l-2 7.5l-2 4.5l-3.5 5.5l-5 7l-3 5.5l-0.5 4.5l1.5 6l3 7l2.5 5.5l2.5 3.5l2.5 3.5l3 2l2.5 3.5l2 3.5l3 6.5l19 56l3.5 6l3 2l4 0.5l5 0l4.5 -0.5l5 0l6 0.5l8 1l5.5 1.5l4 2.5l5 4.5l6 7l5 4l3.5 1l6.5 -1.5l10 -5l5.5 -3.5l1.5 -2.5l0 -3l-1 -4l0 -3l1 -3l2.5 -3l4 -3l3.5 -1l4 0l6 3l17 14l6 4.5l4.5 2.5l4.5 2.5l5 3l4 2l3.5 1.5l2.5 1l2 0l1.5 1l1 0.5l0 1l0 1l0.5 1l2 0.5l3 0.5l4 0l4 0l4.5 0l6.5 0l8 -1l6.5 0l4.5 0l4 0l4 0l4 0.5l4.5 1l5.5 1l6 1l5.5 1.5l5 1.5l5.5 2l6 3l5.5 2.5l4.5 2l5.5 3.5l6 4l5 3.5l3.5 3l3.5 2.5l3 3l3 3l3 3l3.5 4l4 5l3 3.5l2.5 2.5l2 1.5l2 1l0.5 2l0 2.5l-2.5 6l-5 11l-3 5.5l-2 2.5l-1.5 1l-2 0l-0.5 0.5l-0.5 0.5l0 1l1 1l0.5 1l0.5 0.5l0 0.5"/></g><g class="m-water" id="map-water"><text x="761" y="-367">SALTSJÖN</text><text x="-943" y="-400">RIDDARFJÄRDEN</text></g><g class="m-poi" id="map-poi"><g transform="translate(6 -122)"><circle r="3"/><text x="9" y="0">Slussen</text></g><g transform="translate(-51 -678)"><circle r="3"/><text x="9" y="0">Gamla stan</text></g><g transform="translate(755 122)"><circle r="3"/><text x="9" y="0">Fotografiska</text></g><g transform="translate(-483 211)"><circle r="3"/><text x="9" y="0">Mariatorget</text></g><g transform="translate(97 511)"><circle r="3"/><text x="9" y="0">Medborgarplatsen</text></g><g transform="translate(398 411)"><circle r="3"/><text x="9" y="0">Katarina kyrka</text></g><g transform="translate(204 122)"><circle r="3"/><text x="9" y="0">Mosebacke</text></g></g><g class="m-labels" id="map-labels"><text class="m-place" x="560" y="250">SÖDERMALM</text><text x="73" y="409" transform="rotate(71.0 73 409)">GÖTGATAN</text><text x="-1586" y="273" transform="rotate(-14.0 -1586 273)">HORNSGATAN</text><text x="510" y="87" transform="rotate(23.9 510 87)">KATARINAVÄGEN</text><text x="385" y="-3" transform="rotate(24.1 385 -3)">STADSGÅRDSLEDEN</text><text x="352" y="458" transform="rotate(-13.9 352 458)">FOLKUNGAGATAN</text><text x="-628" y="433" transform="rotate(-14.5 -628 433)">HÖGBERGSGATAN</text><text x="-666" y="-25" transform="rotate(-14.0 -666 -25)">BRÄNNKYRKAGATAN</text></g></svg>
+          <span class="pin" aria-hidden="true"></span>
+          <span class="pin-tag" aria-hidden="true">Turbin</span>
+          <div class="map-ctl" role="group" aria-label="Map zoom">
+            <button type="button" data-z="in" aria-label="Zoom in">+</button>
+            <button type="button" data-z="out" aria-label="Zoom out">−</button>
+            <button type="button" data-z="home" aria-label="Back to Turbin" title="Turbin">◎</button>
+          </div>
+          <small class="map-hint" data-i18n="mapHint">Drag to move · Ctrl/⌘ + scroll to zoom</small>
+          <small class="osm">Map data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors</small>
+        </div>
+        <div class="where-card">
+          <h2 id="where-title">Klevgränd 2</h2>
+          <p class="where-addr">116 46 Stockholm · Södermalm</p>
+          <a class="where-go" href="https://www.google.com/maps/search/?api=1&amp;query=Klevgr%C3%A4nd%202%2C%20116%2046%20Stockholm" target="_blank" rel="noopener" data-i18n="directions">Get directions ↗</a>
+        </div>
+      </section>
+
+      <div class="end" id="contact">
+      <div class="end-in">
+      <p class="contact-lead" data-i18n="about3">If you’re interested in collaborating or want to discuss a project, feel free to reach out.</p>
+      <div class="contact">
+        <div><h3 data-i18n="sayHello">Say hello</h3><p><a href="mailto:info@turbin.se">info@turbin.se</a></p></div>
+        <div><h3 data-i18n="business">Business inquiries</h3><p><a href="tel:+46854528640">+46 8 545 286 40</a><br><a href="mailto:kicki@turbin.se">kicki@turbin.se</a></p></div>
+        <div><h3 data-i18n="join">Join us?</h3><p><a href="mailto:jobb@turbin.se">jobb@turbin.se</a></p></div>
+      </div>
+
+      <footer class="foot">
+        <svg viewBox="0 0 565.59 276.45" role="img" aria-label="Turbin"><use href="#logo"/></svg>
+        <div class="foot-meta">
+          <small>© Turbin AB · Stockholm<span class="orgnr"><span class="sep" aria-hidden="true"> · </span><span data-i18n="orgnr">Reg. no. 556554-4094</span></span></small>
+          <a href="#top" data-i18n="top">Back to top ↑</a>
+        </div>
+      </footer>
+      </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="logo" viewBox="0 0 565.59 276.45"><g fill="currentColor" id="logo-paths"></g></symbol>
+</svg>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/loaders/SVGLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/environments/RoomEnvironment.js"></script>
+<script>
+(() => {
+/* ---- language: English and Swedish, switched in the header ---- */
+const I18N = {
+  brand: ['Creative production agency · Stockholm', 'Produktionsbyrå · Stockholm'],
+  contact: ['Contact', 'Kontakt'],
+  more: ['Scroll down', 'Scrolla ner'],
+  hero: ['Let’s create something <br><em class="hi">impactful</em> together.',
+         'Låt oss skapa något <br><em class="hi">slagkraftigt</em> tillsammans.'],
+  proofEyebrow: ['Proofing · In-house', 'Provtryck · In-house'],
+  proofTitle: ['Right colour, before print', 'Rätt färg, före trycket'],
+  proofCopy: ['Colour-accurate proofs on coated and uncoated paper, printed on our own Epson printers to ISO standard. You see exactly how the job will look in print before it goes to press.',
+              'Färgkorrekta provtryck på bestruket och obestruket papper, utskrivna på våra egna Epson-skrivare enligt ISO-standard. Du ser exakt hur jobbet blir i tryck innan det går till tryckeriet.'],
+  proofCta: ['Order proofs · info@turbin.se', 'Beställ provtryck · info@turbin.se'],
+  specCoated: ['Coated', 'Bestruket'],
+  specUncoated: ['Uncoated', 'Obestruket'],
+  specStandard: ['Standard', 'Standard'],
+  specStandardVal: ['ISO standard', 'ISO-standard'],
+  specPrinters: ['Printers', 'Skrivare'],
+  specPrintersVal: ['Epson, in-house', 'Epson, i huset'],
+  specOrder: ['Order', 'Beställ'],
+  specOrderVal: ['By email · format, paper, quantity', 'Via mejl · format, papper, antal'],
+  clientsEyebrow: ['Selected clients · 12', 'Utvalda kunder · 12'],
+  clientsTitle: ['In good company', 'I gott sällskap'],
+  aboutLead: ['We are a creative production agency with our office and studio at Götgatsbacken in Stockholm.',
+              'Vi är en kreativ produktionsbyrå med kontor och studio på Götgatsbacken i Stockholm.'],
+  about1: ['The team combines broad experience with specialist expertise across a number of disciplines. Our work includes graphic design, high-end retouching and image editing, illustration, animation, infographics, digital production, copy, and content for social media.',
+           'Teamet kombinerar bred erfarenhet med specialistkompetens inom en rad discipliner. Vi arbetar med grafisk design, avancerad retusch och bildbearbetning, illustration, animation, infografik, digital produktion, copy och innehåll för sociala medier.'],
+  about2: ['Our work includes graphic design, high-end retouching and image editing, illustration, animation, infographics, digital production, copy, and content for social media.',
+           'Vi arbetar med grafisk design, avancerad retusch och bildbearbetning, illustration, animation, infografik, digital produktion, copy och innehåll för sociala medier.'],
+  about3: ['If you’re interested in collaborating or want to discuss a project, feel free to reach out.',
+           'Är du intresserad av att samarbeta eller vill diskutera ett projekt, hör gärna av dig.'],
+  crewEyebrow: ['Our people · 9', 'Våra medarbetare · 9'],
+  crewTitle: ['The crew', 'Teamet'],
+  crewLede: ['Nine people behind every still, motion piece and digital service. Reach any of us directly.',
+             'Nio personer bakom varje stillbild, film och digital tjänst. Hör av dig direkt till vem du vill.'],
+  ceo: ['CEO', 'VD'],
+  findUs: ['Find us', 'Hitta hit'],
+  directions: ['Get directions ↗', 'Vägbeskrivning ↗'],
+  mapHint: ['Drag to move · Ctrl/⌘ + scroll to zoom', 'Dra för att flytta · Ctrl/⌘ + scrolla för att zooma'],
+  sayHello: ['Say hello', 'Säg hej'],
+  business: ['Business inquiries', 'Affärsförfrågningar'],
+  join: ['Join us?', 'Jobba hos oss?'],
+  top: ['Back to top ↑', 'Till toppen ↑'],
+  orgnr: ['Reg. no. 556554-4094', 'Org.nr 556554-4094'],
+  altOffice: ['The lounge at Turbin’s studio on Klevgränd, with a navy sofa and armchairs', 'Loungen i Turbins studio på Klevgränd, med marinblå soffa och fåtöljer'],
+  altKicki: ['Kicki Särenfors smiling at her desk in the studio', 'Kicki Särenfors ler vid sitt skrivbord i studion'],
+  altDetail: ['A cushion on the navy sofa, seen past a plant leaf', 'En kudde i den marinblå soffan, bakom ett växtblad'],
+  altTeam: ['Thomas and Fredric at work at their screens', 'Thomas och Fredric jobbar vid sina skärmar'],
+  casesEyebrow: ['Selected work · 4', 'Utvalda case · 4'],
+  casesTitle: ['Selected work', 'Utvalda case'],
+  casePh1: ['Image 1', 'Bild 1'],
+  casePh2: ['Image 2', 'Bild 2'],
+  casePh3: ['Image 3', 'Bild 3'],
+  caseMeta1: ['Client · Still', 'Kund · Stillbild'],
+  caseMeta2: ['Client · Motion', 'Kund · Film'],
+  caseFilmAlt: ['Autumn video ads', 'Höstens videoannonser'],
+  caseAltHM: ['An H&M sustainability report designed as a receipt, printed as a poster on a wall',
+              'En hållbarhetsrapport för H&M formgiven som ett kvitto, uppsatt som affisch på en vägg'],
+  caseAltPeab: ['A Peab helmet against a concrete wall, with the podcast title Livsviktigt across the top',
+                'En Peab-hjälm mot en betongvägg, med podcasttiteln Livsviktigt över bilden'],
+  caseAltMabra: ['The cover of the magazine MåBra, a laughing woman in a pink knitted jumper by the sea',
+                 'Omslaget till tidningen MåBra, en skrattande kvinna i rosa stickad tröja vid havet'],
+  caseMeta3: ['Client · Digital', 'Kund · Digitalt'],
+  caseMeta4: ['Client · Editorial', 'Kund · Redaktionellt'],
+  caseLine1: ['One line about the job: the problem, and what we made of it.',
+              'En mening om jobbet: problemet, och vad vi gjorde av det.'],
+  caseLine2: ['One line about the job: the problem, and what we made of it.',
+              'En mening om jobbet: problemet, och vad vi gjorde av det.'],
+  caseLine3: ['One line about the job: the problem, and what we made of it.',
+              'En mening om jobbet: problemet, och vad vi gjorde av det.'],
+  caseLine4: ['One line about the job: the problem, and what we made of it.',
+              'En mening om jobbet: problemet, och vad vi gjorde av det.'],
+  desc: ['Turbin is a production agency in Stockholm. Still, motion and digital — let’s create something impactful together.',
+         'Turbin är en produktionsbyrå i Stockholm. Stillbild, film och digitalt — låt oss skapa något slagkraftigt tillsammans.'],
+};
+function setLang(code, remember) {
+  const i = code === 'sv' ? 1 : 0;
+  document.documentElement.lang = code;                    // the wrapper's <html> has no lang
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const copy = I18N[el.dataset.i18n];
+    if (!copy) return;
+    if (el.dataset.i18n === 'hero') el.innerHTML = copy[i]; else el.textContent = copy[i];
+  });
+  document.querySelectorAll('[data-i18n-label]').forEach(el => {
+    const copy = I18N[el.dataset.i18nLabel];
+    if (copy) el.setAttribute('aria-label', copy[i]);
+  });
+  document.querySelectorAll('[data-i18n-alt]').forEach(el => {
+    const copy = I18N[el.dataset.i18nAlt];
+    if (copy) el.alt = copy[i];
+  });
+  const meta = document.querySelector('meta[name="description"]');
+  if (meta) meta.content = I18N.desc[i];
+  document.querySelectorAll('.lang button').forEach(b => {
+    const on = b.dataset.lang === code;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  if (remember) { try { localStorage.setItem('turbin-lang', code); } catch (e) {} }
+}
+// Swedish is switched off for now: the page is English only (the Swedish copy stays in I18N,
+// so restoring the EN / SV switch in the header and this line brings it back)
+setLang('en', false);
+document.querySelectorAll('.lang button').forEach(b => b.addEventListener('click', () => setLang(b.dataset.lang, true)));
+// Exact path data from Turbin.sv.BLACK.svg (viewBox 565.59 × 276.45)
+// W = wordmark "turbin", D = dot of the i, B = upper blade, S = lower sweep
+const PATHS = {"W": "M564.06,112.91c-2.48,2.89-4.58,6.13-8.6,7.2-1.55.36-3.15-.16-3.85-.65-1.16-1-2.08-3.18-1.81-5.1,1.29-11.95,4.04-24.23,5.3-36.29.7-4.67-.83-8.13-1.25-9.36-2.16-6.32-11.3-13.16-22.29-10.8-3.74.79-9.11,3.01-14.18,6.78-3.6,2.68-7.77,8.48-8.56,9.72-.66,1-2.17,3.9-2.82,5.11-.61-1.4-1.03-2.99-1.57-4.35-2.23-5.94-9.38-9.82-18.68-7.09-5.36,1.56-16,6.67-19.97,17.99-2.88,8.22-10.29,31.24-15.59,47.18-1.19,3.66-3.05,9.01-6.78,9.82-6.43,1.32-6.07-7.39-5.88-9.1.45-4.13,4.8-28,5.63-35.73.15-1.68.22-2.56.2-3.89-.13-9.42-7.67-12.52-10.09-13.23-2.21-.66-5.9-1.17-8.79-.95-3.09.36-9.81,1.96-14.2,5.41-3.04,2.4-6.72,7.41-8.5,11.68-.32-.64-.7-1.22-1.14-1.73-2.85-3.38-8.28-7.9-16.32-6.19-14.26,3.03-16.81,15.02-16.74,20.28.05,5.29,2.78,9.43,5.04,11.86,3.42,3.7,11.63,6.39,18.04-.24,1.31.66,2.13,3.01,2.13,3.01,1.46,3.75.28,14.76-7.74,24.87-4.63,5.83-10.13,10.83-16.85,11.38-5.38.43-8.95-3.48-10.48-7.54-1.1-2.9-.9-7.29-.08-13.16.71-4.48,17.1-103.57,17.29-105.76.89-5.44-.61-10.98-4.15-14.22-4-3.46-13.91-1.7-16.98-.54-8.07,3.34-11.76,6.58-14.49,12.64,0,0-.74,1.45-.17,2.21.48.58.55.36.8.66.27.32,4.44-2.95,7.04-3.81.89-.29,1.69-.42,2.38-.51.94.02,5.19-.07,4.64,3.88-.34,2.5-.52,4.38-.93,6.71-1.87,10.24-11.14,78.63-14.64,85.19-2.33,4.37-16.19,36.09-17.79,38.9-3.99,7.03-9.27,4.17-10.15,2.98-1-1.35-1.23-3.2-.95-4.96,1.22-6.88,4.83-34.92,5.36-38.64,1.41-9.65-2.2-18.4-20.89-16.98-1.57.13-3.88.52-7.93,1.24-.63-.07-1.18-.6-1.46-1.13-.3-.53-.95-3.46-1.07-4.14-.12-.67-.58-2.34-1.55-2.75-.83-.32-3.92-.58-6.33.3-1.62.61-1.75,2.66-1.81,2.88-.17,1.01-.5,3.29-.84,5.12-1.52,9.43-9.67,42.6-12.36,49.89-1.17,3.84-6.42,17.76-7.04,18.89-1.6,2.45-2.77,4.41-5.24,5.73-1.62.65-3.25.69-4.55-.06-2.09-1.09-2.5-3.69-2.21-6.03,2.87-19.13,6.09-37.59,8.88-56.5.14-.72.69-3.89-2.14-3.26-3.05.64-12.63,2.68-12.63,2.68,0,0-3.89.65-5.87,1.62-.92.92-1.81,1.81-2.16,3.6-2.01,11.51-3.35,22.64-5.11,34.28-1.09,5.09-1.42,10.87-2.63,15.87-.31.89-.89,3.94-2.32,6.32-1.46,2.37-7.1,8.69-12.24,10.33-3.43,1.08-4.7,1.12-7.18.08-3.99-1.48-3.42-7.86-3.21-9.49,2.09-14.5,3.9-26.63,6-41.05.25-2.21-.29-3.86-.78-5.22-1.27-3.61-7.11-6.51-11.14-6.94-2.41-.2-5.04.03-7.43.54-4.51,1.17-8.61,3.21-12.01,5.34-4.18,2.87-7.81,7.64-8.06,9.18-.27,1.55-.04,3.18,1.38,3.7,1.33.48,4.51-3.5,6.7-5.01,2.19-1.5,5.18-1.52,6.33-1.15,1.08.36,2.06.69,2.06,3.19.03,2.49-4.91,32.78-5.69,37.92-.76,5.16-2.62,15.35,3.85,21.94,1.65,1.69,5.91,4.31,11.05,4.73,9.39.76,17.82-4.76,20.24-6.34,4.02-2.63,12.06-11.21,13.86-13.67.62,1,4.09,6.93,9.89,9.03,3.99,1.45,11,.57,15.05-1.16,1.3-.56,4.23-1.99,6.73-4.36,2.52-2.38,8.79-10.81,11.09-16.17,2.44-5.7,4.56-11.59,6.25-17.73,2.18-7.29,8.46-30.93,9.73-35.74.33-1.06,1.58-1.4,2.54-1.8,2.52-.95,6.52-.98,8.87,1.41,2.13,1.91,1.51,4.8,1.16,7.44-.54,3.35-4.93,32.49-5.37,37.83-.21,2.17,0,5.12.6,6.98,1.34,3.21,2.93,5.94,6.25,7.81,3.31,1.85,7.17,3.18,15,1.42,17.4-3.87,24-28.01,27.25-34.71.24,1.2.24,2.41.8,4.14.9,2.65,5.27,17.17,20.14,18.61,6.69.66,11.03-.6,16.8-2.69,18.9-6.81,25.66-30.72,27.22-36.51,1.56-5.79,3.74-17.32,2.39-29.42,4.84-11.75,13.25-10.43,13.25-10.43,1.13.11,2.86,1.08,3.64,3.42.39,1.15.39,2.11.37,3.35-1.71,13.4-5.55,32.68-5.8,35.35-.39,3.92-.46,14.06,5.39,19.06,3.6,3.06,13.08,6.41,22.52,2.01,12.76-5.92,15.95-18.68,16.84-21.01,2.02-5.15,13.41-41.19,14.11-43.11,1.76-5,4.43-10.03,7.4-10.85,2.64-.74,3.64.74,3.99,1.84.57,1.83.4,3.82.17,5.56-2.48,15.66-7.02,42.68-7.24,44.27-.24,1.6-1.97,12.89-2.1,13.49-.25,1.48.3,1.87,1.38,1.64,1.02-.23,13.45-2.85,15.32-3.26,1.84-.38,5.48-.87,5.83-2.76,2.43-15.72,7.28-44.85,7.65-46.71.36-1.87,4.55-15.04,12.01-19.83,1.46-.92,3.78-1.9,4.96-2.04,1.22-.15,3.25-.21,4.82.8,2.99,1.43,3.89,4.74,3.82,7.86-1.7,12.89-5.38,38.07-5.4,38.8-.04.74-.42,3.28.06,6.13.51,2.84,2.88,10.8,15.73,7.98,1.81-.4,8.61-2.54,12.95-5.84,5.15-4.09,10.29-9.53,10.16-16.53,0-.71-1.01-.4-1.53-.81", "D": "M450.99,48.71c-.14.66-.98,5.02-4.3,7.55-1.21.99-2.71,1.82-4.11,2.52-1.43.64-2.41.94-4.58,1.23-2.14.27-3.93.12-6.02-.57-2.53-.84-6.03-3.49-7.21-5.22-1.12-1.59-1.96-4.23-2.05-5.42-.25-2.62.03-5.71,1.05-7.65,1.01-1.95,3.16-4.96,6.62-7,5.67-3.2,11.9-1.29,13.08-.84,1.16.46,3.86,2.53,5.3,4.55,1.14,1.62,2.31,4.95,2.41,7.42.03.1-.03,2.76-.19,3.44", "B": "M252.19,36.44c-3.38,2.77-11.82,9.71-29.38,14.73-26.58,7.59-116.32,16.85-129.84,19.88-19.61,4.14-39.65,17.03-44.15,32.93-.92,2.9-3.19,10.05-1.1,20.12,5.17,24.55,25.73,28.65,33.89,26.95,18.65-3.95,22.24-23.06,19.57-34.42-2.95-12.54-13.82-21.63-22.34-20.35-3.42.57,2.83-4.23,3.78-4.12,4.68-.28,17.68,3.34,24.26,11.11,5.18,6.14,8.01,17.49,7.88,21.68-.12,3.95-.55,23.48-17.82,34.91-5.13,3.39-21.8,10.83-38.96,5.79-7.44-2.22-18.78-7.25-27.32-22.95-2.8-5.13-5.11-15.6-4.43-23.82,1.8-21.33,16.11-36.6,25.97-44.06,20.63-15.57,43.74-22.35,69.72-27.73,6.7-1.53,23.32-4.71,31.13-5.89,12.39-1.69,41.96-6.94,43.84-7.45,31.69-6.75,41.28-13.98,46.31-17.1,5.02-3.15,13.98-11.54,15.89-13.7.94-.99,3.16-3.97,5.15-2.55,1.52,1.03,1.91,2.73,1.33,6.24-.4,2.45-2.15,20.57-13.38,29.82", "S": "M90.2,204.1c-.76.65-3.67-.69-6.34-1.66-1-.31-2.52-.88-3.83-1.15-11.87-2.43-23.89-2.16-36.66.66-12.72,2.58-28.48,16.02-28.08,28.87.11,3.39.75,14.43,13.86,21.33,14.08,7.45,34.88-.6,44.82-6.55,9.93-5.93,14.79-13,19.42-19.62,4.65-6.68,14.44-31.81,16.64-37.89,2.2-6.08,17.81-51.48,23.39-63.2,4.14-11.12,12.24-23.27,20.49-32.83,8.13-9.43,25.33-21.88,34.31-25.15,6.48-2.61,14.02-4.41,19.99-5.18,5.98-.75,5.43,3.09,5.08,3.46-2.96.92-5.89,2.05-8.49,2.94-7.84,2.88-18.92,9.97-26.48,18.88-10.8,11.72-17.56,36.68-19.7,43.6-1.87,5.76-9.64,35.44-11.01,39.75-1.35,4.3-16.57,71.01-48.5,91.77-22.28,14.47-48,16.23-63.08,12.87-13.82-3.09-20.5-8.18-27.41-15.88-6.91-7.71-13.05-26.93-4.37-42.19,7.74-13.61,22.66-21.69,36.85-25.21,26.16-6.48,46.99,2.98,47.4,4.57l1.68,7.82"};
+
+const $ = s => document.querySelector(s);
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const ss = (a, b, x) => { const t = clamp((x - a) / (b - a)); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+const win = (p, a, b, f) => ss(a - f, a + f, p) * (1 - ss(b - f, b + f, p));
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+// flat SVG copies (footer + no-WebGL fallback)
+const g2d = $('#logo-paths');
+['W', 'D', 'B', 'S'].forEach(k => {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+  el.setAttribute('d', PATHS[k]); g2d.appendChild(el);
+});
+
+/* ------------------------------------------------------------------
+   Timeline: chapters, panel windows (in scroll progress 0–1)
+------------------------------------------------------------------- */
+const PANEL = {
+  hero: [-1, 0.055], explode: [0.10, 0.185], still: [0.235, 0.335], motion: [0.385, 0.475],
+  digital: [0.525, 0.615], direction: [0.665, 0.745], values: [0.80, 0.895], together: [-1, 2],
+};
+// which logo part is featured, and when
+const FEAT = {
+  D: { win: [0.20, 0.36], s: 5.0, sz: 2.0 },
+  S: { win: [0.36, 0.50], s: 1.35, sz: 1.2 },
+  W: { win: [0.50, 0.64], s: 1.25, sz: 1.1 },
+  B: { win: [0.64, 0.77], s: 1.5, sz: 1.3 },
+};
+
+const sceneEl = $('#scene'), stage = $('#stage');
+const panels = [...document.querySelectorAll('.panel')];
+let narrow = false;
+
+/* ------------------------------------------------------------------
+   Logo geometry, shared by the hero and the closing logo: one SVG path
+   extruded, in world units (100 SVG units = 1), centred on the whole mark
+------------------------------------------------------------------- */
+const U = 0.01, CX = 565.59 / 2, CY = 276.45 / 2, DEPTH = 14;
+let svgLoader = null;
+function flipWinding(g) {
+  for (const name in g.attributes) {
+    const a = g.attributes[name], s = a.itemSize, arr = a.array;
+    for (let i = 0; i < a.count; i += 3) for (let k = 0; k < s; k++) {
+      const i1 = (i + 1) * s + k, i2 = (i + 2) * s + k, t = arr[i1]; arr[i1] = arr[i2]; arr[i2] = t;
+    }
+  }
+}
+function extrudePart(d) {
+  svgLoader = svgLoader || new THREE.SVGLoader();
+  const data = svgLoader.parse(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 565.59 276.45"><path d="${d}"/></svg>`);
+  const shapes = [];
+  data.paths.forEach(p => shapes.push(...THREE.SVGLoader.createShapes(p)));
+  const g = new THREE.ExtrudeGeometry(shapes, {
+    depth: DEPTH, bevelEnabled: true, bevelThickness: 2.4, bevelSize: 0.8, bevelSegments: 4, curveSegments: 24,
+  });
+  g.translate(-CX, -CY, -DEPTH / 2);
+  g.scale(U, -U, U);          // SVG y-down → world y-up
+  flipWinding(g);             // mirrored scale flips triangle winding back
+  return g;
+}
+
+/* ------------------------------------------------------------------
+   3D
+------------------------------------------------------------------- */
+function init3D() {
+  if (!window.THREE || !THREE.SVGLoader) return null;
+  const canvas = $('#gl');
+  let renderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'high-performance' });
+  } catch (e) { return null; }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x000000, 0);
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.05;
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.VSMShadowMap;
+
+  const scene = new THREE.Scene();
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromScene(new THREE.RoomEnvironment(), 0.04).texture;
+
+  const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+  const HALF_TAN = Math.tan(THREE.MathUtils.degToRad(15));
+
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x202224, 0.35));
+  // key light from high left: lights the bevels, keeps the flat faces deep black
+  const key = new THREE.DirectionalLight(0xffffff, 1.6);
+  key.position.set(-5, 9, 5);
+  scene.add(key);
+  // near-frontal light with zero intensity: it adds no shine to the flat faces,
+  // its only job is the soft shadow on the backdrop (ShadowMaterial ignores intensity)
+  const shade = new THREE.DirectionalLight(0xffffff, 0);
+  shade.position.set(-1.2, 2.8, 16);
+  shade.castShadow = true;
+  shade.shadow.mapSize.set(2048, 2048);
+  Object.assign(shade.shadow.camera, { left: -10, right: 10, top: 8, bottom: -8, near: 1, far: 40 });
+  shade.shadow.radius = 14; shade.shadow.blurSamples = 20; shade.shadow.bias = -0.0004;
+  scene.add(shade);
+  const rim = new THREE.DirectionalLight(0xffffff, 1.1);
+  rim.position.set(7, 3, -5);
+  scene.add(rim);
+  // on black the silhouette needs a second edge light from the lower left
+  const rim2 = new THREE.DirectionalLight(0xffffff, 0.6);
+  rim2.position.set(-7, -4, -3);
+  scene.add(rim2);
+
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(80, 50), new THREE.ShadowMaterial({ opacity: 0.05 }));
+  wall.position.z = -3.2; wall.receiveShadow = true;
+  scene.add(wall);
+
+  const lin = hex => new THREE.Color(hex).convertSRGBToLinear();
+  const INK = lin('#18181B'), GHOST = lin('#0D0D0F'), PALE = lin('#3A3D42'), ACCENT = lin('#2D4FE0');
+
+  // --- geometry from the SVG --------------------------------------
+  function build(d) {
+    const g = extrudePart(d);
+    g.computeBoundingBox();
+    const c = new THREE.Vector3(); g.boundingBox.getCenter(c);
+    g.translate(-c.x, -c.y, -c.z); // pivot each part on its own centre
+    g.computeBoundingSphere();
+    return { g, c };
+  }
+
+  const root = new THREE.Group();
+  scene.add(root);
+  const parts = {};
+  for (const k of ['W', 'D', 'B', 'S']) {
+    const { g, c } = build(PATHS[k]);
+    const mat = new THREE.MeshPhysicalMaterial({
+      color: INK.clone(), roughness: 0.32, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.12, envMapIntensity: 0.45,
+    });
+    const m = new THREE.Mesh(g, mat);
+    m.castShadow = true;
+    m.userData.base = c;
+    m.userData.tris = g.attributes.position.count / 3;
+    root.add(m);
+    parts[k] = m;
+  }
+
+  // exploded-view offsets and tilts
+  const EXPL = { W: [0.4, 0.05, -1.0], D: [0.85, 1.2, 1.5], B: [-0.5, 1.0, 0.8], S: [-1.0, -0.8, -0.1] };
+  const EROT = { W: [0, 0.14, 0], D: [0.3, 0.6, 0], B: [-0.2, -0.2, 0.1], S: [0.15, 0.3, -0.1] };
+
+  // Motion: onion-skin frames trailing the spinning sweep
+  const ONION = [];
+  for (let i = 1; i <= 5; i++) {
+    const m = new THREE.Mesh(parts.S.geometry, new THREE.MeshBasicMaterial({ color: ACCENT, transparent: true, opacity: 0, depthWrite: false }));
+    m.visible = false; root.add(m); ONION.push(m);
+  }
+  const ONION_STEP = 0.12; // radians between frames
+
+  // Digital: live wireframe over the wordmark
+  const wire = new THREE.Mesh(parts.W.geometry, new THREE.MeshBasicMaterial({ color: ACCENT, wireframe: true, transparent: true, opacity: 0, depthWrite: false }));
+  wire.visible = false; parts.W.add(wire);
+
+  // Direction: dashed heading from the blade's leading edge
+  const pos = parts.B.geometry.attributes.position;
+  const tip = new THREE.Vector3(); let best = -Infinity;
+  for (let i = 0; i < pos.count; i++) {
+    const v = pos.getX(i) + pos.getY(i);
+    if (v > best && pos.getZ(i) > 0) { best = v; tip.set(pos.getX(i), pos.getY(i), pos.getZ(i)); }
+  }
+  const HEADING = new THREE.Vector3(0.8, 0.6, 0).normalize();
+  const N = 90, pts = [];
+  for (let i = 0; i < N; i++) pts.push(tip.clone().addScaledVector(HEADING, 0.06 + i * 0.034));
+  const dashGeo = new THREE.BufferGeometry().setFromPoints(pts);
+  const dash = new THREE.Line(dashGeo, new THREE.LineDashedMaterial({ color: ACCENT, dashSize: 0.07, gapSize: 0.05, transparent: true, opacity: 0 }));
+  dash.computeLineDistances(); dash.visible = false;
+  parts.B.add(dash);
+
+  // --- overlays (callouts, AF brackets, HUD) -----------------------
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const lines = $('#lines');
+  const callouts = [...document.querySelectorAll('.callout')].map(el => {
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('fill', 'none'); path.setAttribute('stroke', '#7D858C'); path.setAttribute('stroke-width', '1');
+    const dot = document.createElementNS(svgNS, 'circle');
+    dot.setAttribute('r', '3.5'); dot.setAttribute('fill', '#2D4FE0');
+    lines.append(path, dot);
+    return { el, part: el.dataset.part, path, dot };
+  });
+  const CDIR = { D: [0.55, -1], W: [0.3, 1], B: [0.35, -1], S: [-1, 0.6] };
+  const af = $('#af'), hud = $('#hud');
+  let hudKey = '';
+
+  // --- layout -------------------------------------------------------
+  const LOGO_W = 565.59 * U, LOGO_H = 276.45 * U;   // the mark's own size, in world units
+  let W = 1, H = 1, camZ = 12, vh = 1, vw = 1, fitK = 1, logoY = 0, ready = false;
+  const focal = new THREE.Vector3();
+  function resize() {
+    if (!stage.clientWidth || !stage.clientHeight) return; // hidden: keep last good layout
+    ready = true;
+    W = stage.clientWidth; H = stage.clientHeight;
+    const aspect = W / H;
+    narrow = aspect < 0.85;
+    document.body.classList.toggle('narrow', narrow);
+    renderer.setSize(W, H, false);
+    // The mark gets the room the headline leaves it: on a wide, short laptop window that is a
+    // low strip, on a phone a tall one. Fit the logo inside that box instead of across the text.
+    const panel = stage.querySelector('.p-together');
+    if (panel) panel.style.bottom = '';                          // back to the CSS value before measuring
+    const headroom = 84, gap = 44;                               // header, and air above the headline
+    let textTop = panel ? H - parseFloat(getComputedStyle(panel).bottom) - panel.offsetHeight : H * 0.72;
+    const fit = () => {
+      const room = Math.max(140, textTop - gap - headroom);
+      camZ = Math.max(8,
+        (LOGO_W * (narrow ? 1.15 : 1.3) / 2) / (HALF_TAN * aspect), // fits the width
+        (LOGO_H * 1.12 * (H / room) / 2) / HALF_TAN);               // fits the room above the headline
+      vh = 2 * camZ * HALF_TAN; vw = vh * aspect;
+    };
+    fit();
+    // Phones: the width decides the logo's size, which left the top ~40% of a tall screen empty.
+    // Centre logo + headline + buttons as one group instead (a touch above the middle)
+    if (narrow && panel) {
+      const groupH = LOGO_H / vh * H + gap + panel.offsetHeight;
+      const top = Math.max(headroom, (H - groupH) / 2 * 0.85);
+      const bottom = Math.max(96, H - top - groupH);
+      panel.style.bottom = bottom + 'px';
+      textTop = H - bottom - panel.offsetHeight;
+      fit();
+    }
+    camera.aspect = aspect; camera.position.set(0, 0, camZ); camera.lookAt(0, 0, 0);
+    camera.updateProjectionMatrix();
+    // sit just above the headline, so the air ends up over the mark instead of between the two
+    const logoPx = LOGO_H / vh * H;
+    const centrePx = Math.max(headroom + logoPx / 2, textTop - gap - logoPx / 2);
+    logoY = (H / 2 - centrePx) * vh / H;
+    if (narrow) { focal.set(0, vh * 0.07, 0.5); fitK = 1; }
+    else { focal.set(vw * 0.2, 0.05, 0.6); fitK = Math.min(1, (vw * 0.44) / 4.0); }
+  }
+
+  const v3 = new THREE.Vector3(), v3b = new THREE.Vector3();
+  function toScreen(v) { v3b.copy(v).project(camera); return [(v3b.x + 1) / 2 * W, (1 - v3b.y) / 2 * H]; }
+
+  const par = { x: 0, y: 0, tx: 0, ty: 0 };
+  if (!reduce) addEventListener('pointermove', e => {
+    par.tx = (e.clientX / innerWidth) * 2 - 1; par.ty = (e.clientY / innerHeight) * 2 - 1;
+  }, { passive: true });
+
+  // --- grab the logo and turn it ------------------------------------
+  // drag.x / drag.y are extra tilt / turn on top of the scroll pose; after
+  // letting go the logo coasts, then settles back to rest the short way round
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), meshes = Object.values(parts);
+  const drag = { x: 0, y: 0, vx: 0, vy: 0, on: false, id: null, px: 0, py: 0, pt: 0, idle: 9 };
+  let lastT = 0;
+  function overLogo(e) {
+    const r = canvas.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+    return ray.intersectObjects(meshes, false).length > 0;
+  }
+  stage.style.touchAction = 'pan-y'; // vertical swipes still scroll the page on touch screens
+  stage.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || !overLogo(e)) return;
+    Object.assign(drag, { on: true, id: e.pointerId, px: e.clientX, py: e.clientY, pt: performance.now(), vx: 0, vy: 0, idle: 0 });
+    stage.setPointerCapture(e.pointerId);
+    stage.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+  stage.addEventListener('pointermove', e => {
+    if (drag.on && e.pointerId === drag.id) {
+      const now = performance.now(), dts = Math.max(0.008, (now - drag.pt) / 1000);
+      const ay = (e.clientX - drag.px) * 0.008, ax = (e.clientY - drag.py) * 0.006;
+      drag.y += ay; drag.x = clamp(drag.x + ax, -0.95, 0.95);
+      drag.vy = lerp(drag.vy, ay / dts, 0.5); drag.vx = lerp(drag.vx, ax / dts, 0.5);
+      Object.assign(drag, { px: e.clientX, py: e.clientY, pt: now, idle: 0 });
+    } else if (e.pointerType === 'mouse') {
+      stage.style.cursor = overLogo(e) ? 'grab' : '';
+    }
+  });
+  const release = e => {
+    if (!drag.on || e.pointerId !== drag.id) return;
+    drag.on = false;
+    if (performance.now() - drag.pt > 80) drag.vx = drag.vy = 0; // held still before letting go: no throw
+    stage.style.cursor = e.pointerType === 'mouse' && overLogo(e) ? 'grab' : '';
+  };
+  stage.addEventListener('pointerup', release);
+  stage.addEventListener('pointercancel', release);
+  function stepDrag(time) {
+    const dt = clamp(time - lastT, 0, 0.05); lastT = time;
+    if (drag.on) return;
+    drag.y += drag.vy * dt; drag.x = clamp(drag.x + drag.vx * dt, -0.95, 0.95);
+    const damp = Math.exp(-dt * 3.5); drag.vy *= damp; drag.vx *= damp;
+    drag.idle += dt;
+    if (drag.idle > 1.2) {
+      const k = 1 - Math.exp(-dt * 2.2), TAU = Math.PI * 2;
+      drag.y += (Math.round(drag.y / TAU) * TAU - drag.y) * k;
+      drag.x += -drag.x * k;
+    }
+  }
+
+  function featRot(k, lt) {
+    switch (k) {
+      case 'D': return [0.25, lerp(-1.0, 0.8, lt), 0];
+      case 'S': return [-0.12, 0.28, -lt * Math.PI * 1.1];
+      case 'W': return [0.1, lerp(-0.45, 0.35, lt), 0];
+      case 'B': return [-0.12, lerp(0.55, -0.35, lt), lerp(0.1, -0.05, lt)];
+    }
+  }
+
+  function update(p, time) {
+    if (!ready) { resize(); if (!ready) return; }
+    const e = ss(0.04, 0.16, p) * (1 - ss(0.77, 0.87, p));
+    const foc = {}; let fAny = 0;
+    for (const k in FEAT) { foc[k] = win(p, FEAT[k].win[0], FEAT[k].win[1], 0.03); fAny += foc[k]; }
+    fAny = clamp(fAny);
+    const tilt = e * (1 - fAny);
+
+    if (!drag.on) { par.x += (par.tx - par.x) * 0.05; par.y += (par.ty - par.y) * 0.05; }
+    stepDrag(time);
+
+    root.position.set(
+      narrow ? 0 : vw * 0.1 * tilt,
+      logoY - 0.25 * tilt + (reduce ? 0 : Math.sin(time * 0.9) * 0.035 * (1 - e)),
+      0
+    );
+    root.rotation.set(
+      0.38 * tilt + par.y * 0.07 + drag.x,
+      -0.55 * tilt + par.x * 0.12 + ss(0.87, 0.95, p) * Math.PI * 2 + drag.y,
+      0
+    );
+
+    for (const k of ['W', 'D', 'B', 'S']) {
+      const m = parts[k], b = m.userData.base, ex = EXPL[k], er = EROT[k], F = FEAT[k];
+      const f = foc[k], g = clamp(fAny - f);
+      let x = b.x + ex[0] * e, y = b.y + ex[1] * e, z = b.z + ex[2] * e;
+      x += x * 0.3 * g; y += y * 0.3 * g; z -= 2.0 * g;          // others recede
+      m.position.set(lerp(x, focal.x, f), lerp(y, focal.y - root.position.y * f, f), lerp(z, focal.z, f));
+      const lt = (p - F.win[0]) / (F.win[1] - F.win[0]);
+      const fr = featRot(k, lt);
+      m.rotation.set(lerp(er[0] * e, fr[0], f), lerp(er[1] * e, fr[1], f), lerp(er[2] * e, fr[2], f));
+      const s = lerp(1, F.s * fitK, f) * (1 - 0.3 * g), sz = lerp(1, F.sz * fitK, f) * (1 - 0.3 * g);
+      m.scale.set(s, s, sz);
+      m.material.color.copy(INK).lerp(GHOST, g * 0.9);
+      m.castShadow = g < 0.5;
+    }
+
+    // Motion extras
+    const S = parts.S, fS = foc.S;
+    ONION.forEach((o, i) => {
+      const a = fS * (0.22 - i * 0.038);
+      o.visible = a > 0.004;
+      if (!o.visible) return;
+      o.position.copy(S.position); o.position.z -= 0.03 * (i + 1);
+      o.scale.copy(S.scale);
+      o.rotation.set(S.rotation.x, S.rotation.y, S.rotation.z + ONION_STEP * (i + 1));
+      o.material.opacity = a;
+    });
+
+    // Digital extras
+    const ltW = (p - FEAT.W.win[0]) / (FEAT.W.win[1] - FEAT.W.win[0]);
+    const wireAmt = foc.W * ss(0.02, 0.35, ltW);
+    wire.visible = wireAmt > 0.004;
+    wire.material.opacity = wireAmt * 0.55;
+    parts.W.material.color.lerp(PALE, wireAmt * 0.9);
+
+    // Direction extras
+    const ltB = (p - FEAT.B.win[0]) / (FEAT.B.win[1] - FEAT.B.win[0]);
+    const grow = ss(0.05, 0.5, ltB) * foc.B;
+    dash.visible = grow > 0.01;
+    dash.geometry.setDrawRange(0, Math.max(2, Math.floor(N * grow)));
+    dash.material.opacity = foc.B;
+
+    renderer.render(scene, camera);
+
+    // --- overlays ----------------------------------------------------
+    const cv = win(p, 0.12, 0.18, 0.025);
+    const cx0 = W / 2, cy0 = H * 0.45;
+    callouts.forEach(c => {
+      const m = parts[c.part];
+      m.getWorldPosition(v3);
+      const [ax, ay] = toScreen(v3);
+      if (!isFinite(ax) || !isFinite(ay)) return;
+      const dir = CDIR[c.part], len = Math.hypot(dir[0], dir[1]);
+      const L = Math.min(90, W * 0.07), sign = dir[0] >= 0 ? 1 : -1;
+      const ex = ax + dir[0] / len * L, ey = ay + dir[1] / len * L, lx = ex + sign * 26;
+      c.path.setAttribute('d', `M${ax} ${ay}L${ex} ${ey}L${lx} ${ey}`);
+      c.dot.setAttribute('cx', ax); c.dot.setAttribute('cy', ay);
+      c.path.style.opacity = c.dot.style.opacity = cv;
+      c.el.style.opacity = cv;
+      c.el.classList.toggle('r', sign < 0);
+      c.el.style.left = (lx + sign * 8) + 'px'; c.el.style.top = ey + 'px';
+    });
+
+    // featured part (strongest focus)
+    let fk = null, fv = 0;
+    for (const k in foc) if (foc[k] > fv) { fv = foc[k]; fk = k; }
+    if (fk && fv > 0.01) {
+      const m = parts[fk];
+      m.getWorldPosition(v3);
+      const [sx, sy] = toScreen(v3);
+      v3.x += m.geometry.boundingSphere.radius * m.scale.x;
+      const rpx = Math.abs(toScreen(v3)[0] - sx);
+      const lt = (p - FEAT[fk].win[0]) / (FEAT[fk].win[1] - FEAT[fk].win[0]);
+
+      // AF brackets on Still
+      if (fk === 'D') {
+        const sz = rpx * 2 * lerp(1.9, 1.2, ss(0.05, 0.4, lt));
+        af.style.width = af.style.height = sz + 'px';
+        af.style.transform = `translate(${sx - sz / 2}px,${sy - sz / 2}px)`;
+        af.style.opacity = fv;
+        af.classList.toggle('lock', lt > 0.4);
+      } else af.style.opacity = 0;
+
+      let html = '';
+      if (fk === 'D') html = `<b>AF · ${lt > 0.4 ? 'Locked' : 'Searching'}</b><br>f/2.8 · 1/250 s · ISO 100`;
+      if (fk === 'S') html = `<b>Onion skin · 5 frames</b><br>25 fps · ${(ONION_STEP * 180 / Math.PI).toFixed(1)}° per frame`;
+      if (fk === 'W') html = `<b>Mesh · ${m.userData.tris.toLocaleString('en-US')} triangles</b><br>Extruded from one path`;
+      if (fk === 'B') html = `<b>Heading 037°</b><br>Brief → idea → result`;
+      if (html !== hudKey) { hud.innerHTML = html; hudKey = html; }
+      const hx = clamp(sx - rpx * 0.9, 16, W - 260), hy = clamp(sy + rpx * (fk === 'D' ? 1.3 : 0.95) + 18, 80, H - 150);
+      hud.style.transform = `translate(${hx}px,${hy}px)`;
+      hud.style.left = hud.style.top = '0';
+      hud.style.opacity = fv;
+    } else { af.style.opacity = 0; hud.style.opacity = 0; }
+  }
+
+  resize();
+  return { update, resize };
+}
+
+let gl = null;
+try { gl = init3D(); } catch (e) { console.error(e); gl = null; }
+if (!gl) {
+  stage.classList.add('no3d');
+  // no WebGL: show the rendered spin film instead (the still mark stays for reduced motion)
+  const film = document.getElementById('flat-film');
+  if (film && !matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    stage.classList.add('film');
+    film.play().catch(() => stage.classList.remove('film'));
+  }
+}
+
+// Header over the dark close: switch it to light text while the band is under it
+const endEl = $('#contact'), topBar = $('.top');
+function headerTone() {
+  const r = endEl.getBoundingClientRect(), y = topBar.offsetHeight / 2;
+  document.body.classList.toggle('on-dark', r.top < y && r.bottom > y);
+}
+addEventListener('scroll', headerTone, { passive: true });
+addEventListener('resize', headerTone);
+headerTone();
+
+
+// In-page links (Contact, the scroll cue, Back to top) scroll here in script. A published page runs inside
+// a frame, where a plain "#contact" link can fail to move the page, so this does not rely on the browser
+document.addEventListener('click', e => {
+  const a = e.target.closest('a[href^="#"]');
+  if (!a || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  const id = a.getAttribute('href').slice(1), target = id ? document.getElementById(id) : null;
+  if (!target) return;
+  e.preventDefault();
+  const y = id === 'top' ? 0 : target.getBoundingClientRect().top + scrollY;
+  scrollTo({ top: Math.min(y, document.documentElement.scrollHeight - innerHeight), behavior: reduce ? 'auto' : 'smooth' });
+  if (target.tabIndex < 0 && !/^(A|BUTTON|INPUT)$/.test(target.tagName)) target.setAttribute('tabindex', '-1');
+  target.focus({ preventScroll: true });
+});
+
+// Header: white, or black over a light patch of photo/film. Each item (the name and Contact) looks at the
+// picture right behind it, averages its brightness, and flips with a little hysteresis so it never flickers
+(() => {
+  const items = [...document.querySelectorAll('.top .brand, .top nav a')];
+  const cv = document.createElement('canvas'); cv.width = 24; cv.height = 6;
+  const cx = cv.getContext('2d', { willReadFrequently: true });
+  const posters = new Map();
+  function lightness(el) {
+    const r = el.getBoundingClientRect();
+    const stack = document.elementsFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    let m = stack.find(e => e.tagName === 'IMG' || e.tagName === 'VIDEO');
+    if (!m) return 0;
+    // a film that has not started yet shows its poster: read that instead
+    if (m.tagName === 'VIDEO' && m.readyState < 2 && m.poster) {
+      const p = posters.get(m.poster) || (() => { const i = new Image(); i.src = m.poster; posters.set(m.poster, i); return i; })();
+      if (!p.complete || !p.naturalWidth) return null;
+      const box = m.getBoundingClientRect();
+      m = { tagName: 'IMG', naturalWidth: p.naturalWidth, naturalHeight: p.naturalHeight, getBoundingClientRect: () => box, img: p };
+    }
+    const iw = m.naturalWidth || m.videoWidth, ih = m.naturalHeight || m.videoHeight;
+    if (!iw || !ih || (m.tagName === 'VIDEO' && m.readyState < 2)) return null;
+    const mr = m.getBoundingClientRect(), s = Math.max(mr.width / iw, mr.height / ih);
+    const ox = mr.left + (mr.width - iw * s) / 2, oy = mr.top + (mr.height - ih * s) / 2;
+    const L = Math.max(r.left, mr.left), T = Math.max(r.top, mr.top), Rr = Math.min(r.right, mr.right), B = Math.min(r.bottom, mr.bottom);
+    if (Rr <= L || B <= T) return 0;
+    try {
+      cx.drawImage(m.img || m, (L - ox) / s, (T - oy) / s, (Rr - L) / s, (B - T) / s, 0, 0, cv.width, cv.height);
+      const d = cx.getImageData(0, 0, cv.width, cv.height).data; let sum = 0;
+      for (let i = 0; i < d.length; i += 4) sum += 0.2126 * d[i] + 0.7152 * d[i + 1] + 0.0722 * d[i + 2];
+      const cover = ((Rr - L) * (B - T)) / (r.width * r.height);   // the part of the text that is not over the picture is over black
+      return (sum / (d.length / 4) / 255) * cover;
+    } catch (e) { return 0; }
+  }
+  function tone() {
+    items.forEach(el => {
+      const l = lightness(el); if (l === null) return;
+      const light = el.classList.contains('on-light');
+      if (!light && l > 0.5) el.classList.add('on-light');
+      else if (light && l < 0.4) el.classList.remove('on-light');
+    });
+  }
+  let queued = false;
+  const soon = () => { if (!queued) { queued = true; requestAnimationFrame(() => { queued = false; tone(); }); } };
+  addEventListener('scroll', soon, { passive: true }); addEventListener('resize', soon);
+  setInterval(tone, 300);   // the film keeps changing under a still page
+  addEventListener('load', soon); tone();
+})();
+
+// Cursor: the yellow dot follows the mouse exactly; its shape says what is under it
+(() => {
+  if (!matchMedia('(hover:hover) and (pointer:fine)').matches) return;
+  const dot = document.getElementById('dot'); if (!dot) return;
+  document.documentElement.classList.add('has-dot');
+  let under = null, down = false;
+  const mode = () => {
+    const t = under;
+    const drag = t && ((stage && stage.contains(t) && /grab/.test(stage.style.cursor)) || t.closest('#where-map') && !t.closest('.map-ctl,a,button'));
+    const link = t && t.closest('a,button,[role=button]');
+    dot.classList.toggle('press', down && !drag);
+    dot.classList.toggle('link', !down && !!link && !drag);
+    dot.classList.toggle('grab', !!drag);
+  };
+  addEventListener('pointermove', e => {
+    if (e.pointerType !== 'mouse') return;
+    dot.style.transform = `translate3d(${e.clientX}px,${e.clientY}px,0)`;
+    dot.classList.add('on'); under = e.target; mode();
+  }, { passive: true });
+  addEventListener('pointerdown', e => { if (e.pointerType === 'mouse') { down = true; mode(); } });
+  addEventListener('pointerup', () => { down = false; mode(); });
+  document.addEventListener('mouseleave', () => dot.classList.remove('on'));
+  document.documentElement.addEventListener('mouseleave', () => dot.classList.remove('on'));
+  addEventListener('blur', () => dot.classList.remove('on'));
+})();
+
+// Client logos: four slots that roll up to the next four every 3 s, staggered left to right
+(() => {
+  const box = document.getElementById('logo-flip'); if (!box || reduce) return;
+  const LOGOS = [...box.querySelectorAll('img')].map(i => i.cloneNode());
+  const PER = 4, n = LOGOS.length;
+  box.replaceChildren(); box.classList.add('flip');
+  const cells = Array.from({ length: PER }, (_, k) => { const c = document.createElement('div'); c.className = 'cell'; c.append(LOGOS[k].cloneNode()); box.append(c); return c; });
+  let set = 0, visible = true;
+  new IntersectionObserver(es => { visible = es[0].isIntersecting; }).observe(box);   // no flipping off screen
+  setInterval(() => {
+    if (!visible || document.hidden) return;
+    set = (set + 1) % Math.ceil(n / PER);
+    cells.forEach((c, k) => setTimeout(() => {
+      const old = c.querySelector('img:not(.above)'), nxt = LOGOS[(set * PER + k) % n].cloneNode();
+      nxt.classList.add('below'); c.append(nxt);
+      requestAnimationFrame(() => requestAnimationFrame(() => { old.classList.add('above'); nxt.classList.remove('below'); }));
+      setTimeout(() => old.remove(), 800);
+    }, k * 140));
+  }, 3000);
+})();
+
+// A film in a case frame: play it silently while it is on screen, pause it when it is not
+const caseFilm = $('#case2-film');
+if (caseFilm && !reduce && 'IntersectionObserver' in window) {
+  new IntersectionObserver(es => es.forEach(e => {
+    if (e.isIntersecting) { caseFilm.play().catch(() => {}); } else { caseFilm.pause(); }
+  }), { threshold: 0.2 }).observe(caseFilm);
+}
+
+/* ------------------------------------------------------------------
+   Scroll: the page opens on the assembled mark and the call to action;
+   scrolling spins the logo one full turn
+------------------------------------------------------------------- */
+const START = 0.87, END = 0.95; // story time: assembled logo → one full turn
+
+function scrollRange() { return { top: sceneEl.offsetTop, len: sceneEl.offsetHeight - innerHeight }; }
+
+function resize() { if (gl) gl.resize(); else narrow = innerWidth / innerHeight < 0.85, document.body.classList.toggle('narrow', narrow); }
+addEventListener('resize', resize);
+if (window.ResizeObserver) new ResizeObserver(resize).observe(stage);
+resize();
+
+// Find us map: Klevgränd 2 is the origin (metres). The view can be dragged and zoomed;
+// lines, labels and the pin stay the same size on screen at every zoom
+const mapBox = document.getElementById('where-map');
+const MAPB = { x0: -2100, x1: 1200, y0: -800, y1: 750 };   // how far the view may wander (the data's extent)
+const mv = { ox: 0, oy: 0, z: 1 };                          // world point under the focus, and zoom
+const ZMIN = 0.6, ZMAX = 4;
+function mapGeom() {
+  const r = mapBox.getBoundingClientRect();
+  const mobile = matchMedia('(max-width:760px)').matches;
+  return { r, s: (mobile ? 1150 : 2300) / r.width / mv.z, fx: mobile ? 0.5 : 0.64, fy: 0.5 };
+}
+function fitMap() {
+  if (!mapBox) return;
+  const svg = mapBox.querySelector('svg');
+  const { r, s, fx, fy } = mapGeom();
+  if (!r.width || !r.height) return;
+  mv.ox = clamp(mv.ox, MAPB.x0, MAPB.x1); mv.oy = clamp(mv.oy, MAPB.y0, MAPB.y1);
+  const vx = mv.ox - fx * r.width * s, vy = mv.oy - fy * r.height * s;
+  svg.setAttribute('viewBox', `${vx.toFixed(1)} ${vy.toFixed(1)} ${(r.width * s).toFixed(1)} ${(r.height * s).toFixed(1)}`);
+  const labels = document.getElementById('map-labels');
+  labels.setAttribute('font-size', (10.5 * s).toFixed(2));
+  const place = labels.querySelector('.m-place'); if (place) place.setAttribute('font-size', (34 * s).toFixed(2));
+  const water = document.getElementById('map-water'); if (water) water.setAttribute('font-size', (12 * s).toFixed(2));
+  const poi = document.getElementById('map-poi');
+  if (poi) {
+    poi.setAttribute('font-size', (12 * s).toFixed(2));
+    poi.querySelectorAll('circle').forEach(c => c.setAttribute('r', (3 * s).toFixed(2)));
+    poi.querySelectorAll('text').forEach(t => t.setAttribute('x', (9 * s).toFixed(2)));
+  }
+  // the pin follows Klevgränd 2 (0,0) wherever the view goes
+  mapBox.style.setProperty('--fx', ((0 - vx) / s / r.width).toFixed(4));
+  mapBox.style.setProperty('--fy', ((0 - vy) / s / r.height).toFixed(4));
+  mapBox.querySelectorAll('.map-ctl button').forEach(b => {
+    b.disabled = (b.dataset.z === 'in' && mv.z >= ZMAX - 1e-3) || (b.dataset.z === 'out' && mv.z <= ZMIN + 1e-3);
+  });
+}
+// zoom so the world point under screen point (px, py) stays put
+function zoomAt(z, px, py) {
+  const before = mapGeom();
+  const wx = mv.ox + (px - before.fx * before.r.width) * before.s, wy = mv.oy + (py - before.fy * before.r.height) * before.s;
+  mv.z = clamp(z, ZMIN, ZMAX);
+  const after = mapGeom();
+  mv.ox = wx - (px - after.fx * after.r.width) * after.s; mv.oy = wy - (py - after.fy * after.r.height) * after.s;
+  fitMap();
+}
+let mapAnim = 0;
+function animateMap(to) {   // to: { z, ox, oy } — eased, or instant with reduced motion
+  cancelAnimationFrame(mapAnim);
+  const from = { ...mv }, t0 = performance.now(), dur = reduce ? 0 : 380;
+  const step = now => {
+    const k = dur ? Math.min(1, (now - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
+    if (to.focus) {
+      const g = mapGeom(), z = from.z + (to.z - from.z) * e;
+      zoomAt(z, to.focus[0] ?? g.fx * g.r.width, to.focus[1] ?? g.fy * g.r.height);
+    } else {
+      mv.z = from.z + (to.z - from.z) * e; mv.ox = from.ox + (to.ox - from.ox) * e; mv.oy = from.oy + (to.oy - from.oy) * e;
+      fitMap();
+    }
+    if (k < 1) mapAnim = requestAnimationFrame(step);
+  };
+  mapAnim = requestAnimationFrame(step);
+}
+if (mapBox) {
+  const ctlFocus = () => { const g = mapGeom(); return [g.fx * g.r.width, g.fy * g.r.height]; };
+  mapBox.querySelector('.map-ctl').addEventListener('click', e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.z === 'home') animateMap({ z: 1, ox: 0, oy: 0 });
+    else animateMap({ z: clamp(mv.z * (b.dataset.z === 'in' ? 1.6 : 1 / 1.6), ZMIN, ZMAX), focus: ctlFocus() });
+  });
+  // Ctrl/⌘ + wheel (and trackpad pinch) zooms at the cursor; a plain wheel still scrolls the page
+  mapBox.addEventListener('wheel', e => {
+    if (!e.ctrlKey && !e.metaKey) return;
+    e.preventDefault();
+    const r = mapBox.getBoundingClientRect();
+    zoomAt(mv.z * Math.exp(-e.deltaY * 0.0025), e.clientX - r.left, e.clientY - r.top);
+  }, { passive: false });
+  mapBox.addEventListener('dblclick', e => {
+    if (e.target.closest('.map-ctl,a')) return;
+    const r = mapBox.getBoundingClientRect();
+    animateMap({ z: clamp(mv.z * (e.shiftKey ? 1 / 1.6 : 1.6), ZMIN, ZMAX), focus: [e.clientX - r.left, e.clientY - r.top] });
+  });
+  // drag to pan (on touch, vertical swipes keep scrolling the page)
+  let drag = null;
+  mapBox.addEventListener('pointerdown', e => {
+    if (e.button !== 0 || e.target.closest('.map-ctl,a')) return;
+    cancelAnimationFrame(mapAnim);
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, ox: mv.ox, oy: mv.oy, moved: false };
+  });
+  mapBox.addEventListener('pointermove', e => {
+    if (!drag || e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+    if (!drag.moved && Math.hypot(dx, dy) < 4) return;
+    if (!drag.moved) { drag.moved = true; mapBox.setPointerCapture(e.pointerId); mapBox.classList.add('grabbing'); }
+    const { s } = mapGeom();
+    mv.ox = drag.ox - dx * s; mv.oy = drag.oy - dy * s;
+    fitMap();
+  });
+  const endDrag = e => { if (drag && e.pointerId === drag.id) { drag = null; mapBox.classList.remove('grabbing'); } };
+  mapBox.addEventListener('pointerup', endDrag);
+  mapBox.addEventListener('pointercancel', endDrag);
+  // keyboard: arrows move, + / − zoom, 0 back to Turbin
+  mapBox.addEventListener('keydown', e => {
+    if (e.target !== mapBox) return;
+    const { s } = mapGeom(), step = 80 * s;
+    const moves = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] };
+    if (moves[e.key]) { e.preventDefault(); mv.ox += moves[e.key][0]; mv.oy += moves[e.key][1]; fitMap(); }
+    else if (e.key === '+' || e.key === '=') { e.preventDefault(); animateMap({ z: clamp(mv.z * 1.6, ZMIN, ZMAX), focus: ctlFocus() }); }
+    else if (e.key === '-') { e.preventDefault(); animateMap({ z: clamp(mv.z / 1.6, ZMIN, ZMAX), focus: ctlFocus() }); }
+    else if (e.key === '0') { e.preventDefault(); animateMap({ z: 1, ox: 0, oy: 0 }); }
+  });
+}
+fitMap();
+addEventListener('resize', fitMap);
+if (window.ResizeObserver && mapBox) new ResizeObserver(fitMap).observe(mapBox);
+
+let prog = null, last = performance.now();
+
+function frame(now) {
+  if (window.turbinHold) { last = now; requestAnimationFrame(frame); return; }
+  const dt = Math.min(0.1, (now - last) / 1000); last = now;
+  const r = scrollRange();
+  const target = clamp((scrollY - r.top) / Math.max(1, r.len));
+  if (prog === null || reduce) prog = target; // no catch-up spin when reloading mid-page
+  else prog += (target - prog) * (1 - Math.exp(-dt * 7));
+  if (Math.abs(target - prog) < 0.00005) prog = target;
+  paint(prog, now);
+  requestAnimationFrame(frame);
+}
+
+const cue = $('#cue');
+function paint(t, now = performance.now()) {
+  const p = lerp(START, END, t);
+  if (cue) { const c = 1 - ss(0.02, 0.18, t); cue.style.opacity = c; cue.style.visibility = c < 0.02 ? 'hidden' : 'visible'; }
+  panels.forEach(el => {
+    const [a, b] = PANEL[el.dataset.ch];
+    const v = win(p, a, b, 0.02);
+    el.style.opacity = v;
+    el.style.visibility = v < 0.01 ? 'hidden' : 'visible';
+    el.style.setProperty('--dy', ((1 - v) * (p < a ? 18 : -18)).toFixed(1) + 'px');
+    el.classList.toggle('is-live', v > 0.6);
+  });
+  if (gl) gl.update(p, now / 1000);
+}
+window.turbinPaint = t => paint(clamp(t)); // render any scroll position (for previews/thumbnails)
+requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
