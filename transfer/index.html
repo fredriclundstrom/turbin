@@ -250,7 +250,7 @@
       <div>
         <p class="eyebrow" id="eyebrow">File transfer</p>
         <h1 class="title" id="title">Send files<br>to Turbin</h1>
-        <p class="copy" id="lead">Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.</p>
+        <p class="copy" id="lead">Drop originals, films or whole folders. No size limit. Files go straight to the right person at Turbin.</p>
       </div>
       <div class="modes" id="modes" role="group" aria-label="Who are you?" hidden>
         <button type="button" data-mode="client" aria-pressed="true">Client</button>
@@ -263,7 +263,7 @@
       <div>
         <div class="drop" id="drop">
           <p class="drop-big">Drop files<br>or folders</p>
-          <p class="drop-sub">Anything goes — print originals, raw footage, hundreds of files at once.</p>
+          <p class="drop-sub">Anything goes: print originals, raw footage, hundreds of files at once.</p>
           <p class="drop-or">or</p>
           <div class="picks">
             <button type="button" class="pick" id="pick-files">Choose files</button>
@@ -335,7 +335,7 @@
           <h2 id="prog-title">Sending</h2>
           <p class="big-pct"><span id="pct">0</span><small>%</small></p>
           <div class="meter" aria-hidden="true"><i id="meter"></i></div>
-          <div class="stats"><span><b id="sent">0 B</b> of <span id="total">0 B</span></span><span id="speed">—</span><span id="eta">—</span></div>
+          <div class="stats"><span><b id="sent">0 B</b> of <span id="total">0 B</span></span><span id="speed">-</span><span id="eta">-</span></div>
           <p class="status-line" id="status">Preparing…</p>
           <div class="actions">
             <button type="button" class="btn ghost" id="pause">Pause</button>
@@ -418,7 +418,7 @@
   <span>© Turbin AB · Klevgränd 2 · Stockholm</span>
 </footer>
 
-<div class="demo" id="demo">Preview — nothing is actually uploaded</div>
+<div class="demo" id="demo">Preview: nothing is actually uploaded</div>
 
 <script>
 'use strict';
@@ -426,8 +426,8 @@ const $ = s => document.querySelector(s);
 const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ------------------------------------------------------------------
-   Live or preview. The page asks the PHP backend (api/) for its config; if there is none —
-   GitHub Pages, or opened as a file — it runs as a preview with simulated uploads and sample data.
+   Live or preview. The page asks the PHP backend (api/) for its config; if there is none
+   (GitHub Pages, or opened as a file) it runs as a preview with simulated uploads and sample data.
 ------------------------------------------------------------------- */
 const API = 'api/index.php';
 let LIVE = false, CONF = null;
@@ -459,7 +459,7 @@ const SAMPLE_IN = [
 /* ---------- helpers ---------- */
 const fmt = b => { const u = ['B', 'KB', 'MB', 'GB', 'TB']; let i = 0; while (b >= 1000 && i < u.length - 1) { b /= 1000; i++; } return (i ? b.toFixed(b < 10 ? 1 : 0) : b) + ' ' + u[i]; };
 const fmtDate = t => new Date(t).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-const fmtTime = s => !isFinite(s) ? '—' : s < 60 ? Math.ceil(s) + ' s left' : s < 3600 ? Math.ceil(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
+const fmtTime = s => !isFinite(s) ? '-' : s < 60 ? Math.ceil(s) + ' s left' : s < 3600 ? Math.ceil(s / 60) + ' min left' : (s / 3600).toFixed(1) + ' h left';
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => 'abcdefghijkmnpqrstuvwxyz23456789'[b % 32]).join('');
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -523,9 +523,9 @@ async function showDelivery(id) {
     `<li><span class="f-name">${splitPath(f[0])}</span><span class="f-size">${fmt(f[1])}</span>${LIVE
       ? `<a class="btn ghost get" href="${href(f)}" download>Download</a>`
       : `<button type="button" class="btn ghost get" data-i="${i}">Download</button>`}</li>`).join('');
-  if (!LIVE) $('#g-list').addEventListener('click', e => { if (e.target.closest('.get')) toast('Preview — the download starts here on the live page'); });
+  if (!LIVE) $('#g-list').addEventListener('click', e => { if (e.target.closest('.get')) toast('Preview: the download starts here on the live page'); });
   $('#g-all').addEventListener('click', async () => {
-    if (!LIVE) return toast('Preview — the download starts here on the live page');
+    if (!LIVE) return toast('Preview: the download starts here on the live page');
     // one file after another; the browser may ask once to allow several downloads
     toast(`Downloading ${d.files.length} files…`);
     for (const f of d.files) {
@@ -544,7 +544,7 @@ function initSend() {
   let files = [];             // { file, path, size, sent, el }
   let job = null;             // running upload
 
-  // the crew list: the client's "send to" and the crew's "from" (preview only — live, you are who you signed in as)
+  // the crew list: the client's "send to" and the crew's "from" (preview only; live, you are who you signed in as)
   F.to.insertAdjacentHTML('beforeend', CREW.map(c => `<option value="${c.id}">${esc(c.name)}</option>`).join(''));
   const pre = params.get('to'); if (pre && CREW.some(c => c.id === pre)) F.to.value = pre;   // ?to=kicki preselects
   function renderWho() {
@@ -606,7 +606,7 @@ function initSend() {
 
   /* ---------- mode: client / crew ---------- */
   const COPY = {
-    client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: 'Drop originals, films or whole folders — no size limit. Files go straight to the right person at Turbin.',
+    client: { eyebrow: 'File transfer', title: 'Send files<br>to Turbin', lead: 'Drop originals, films or whole folders. No size limit. Files go straight to the right person at Turbin.',
       form: 'Your details', go: 'Send files →', fine: 'Files are delivered privately to Turbin. Nothing you send here gets a public link.' },
     crew: { eyebrow: 'Turbin crew', title: 'Deliver files<br>to a client', lead: 'Upload, get a link, send it to the client. The link stops working when it expires.',
       form: 'Delivery', go: 'Upload & get link →', fine: LIVE ? 'Only for files from Turbin to our clients.' : 'Only for files from Turbin to our clients. The live page asks for a crew login.' },
@@ -728,7 +728,7 @@ function initSend() {
   function start() {
     const total = files.reduce((a, f) => a + f.size, 0);
     job = { id: null, total, paused: false, cancelled: false, offline: false, hist: [], dropped: false, xhrs: new Set() };
-    files.forEach(f => { f.sent = 0; f.done = false; f.el.classList.remove('done'); f.el.querySelector('.f-state').textContent = '—'; });
+    files.forEach(f => { f.sent = 0; f.done = false; f.el.classList.remove('done'); f.el.querySelector('.f-state').textContent = '-'; });
     form.hidden = true; $('#progress').hidden = false; $('#done').hidden = true;
     $('#prog-title').textContent = mode === 'crew' ? 'Uploading' : 'Sending';
     $('#total').textContent = fmt(total);
@@ -767,8 +767,8 @@ function initSend() {
         const done = files.reduce((a, f) => a + f.sent, 0);
         if (!job.dropped && done / job.total > .4) {
           job.dropped = true; job.offline = true;
-          status('Connection lost — waiting to resume…', 'warn');
-          setTimeout(() => { if (!job) return; job.offline = false; status('Back online — resumed where it left off.'); last = performance.now(); }, 1800);
+          status('Connection lost. waiting to resume…', 'warn');
+          setTimeout(() => { if (!job) return; job.offline = false; status('Back online. Resumed where it left off.'); last = performance.now(); }, 1800);
         }
       }
       if (files.every(f => f.sent >= f.size)) {
@@ -806,11 +806,11 @@ function initSend() {
   // keep trying through dropped connections; give up only on a real error from the server
   async function withRetry(fn) {
     for (let wait = 1000; ; wait = Math.min(wait * 2, 30000)) {
-      try { const r = await fn(); if (job?.offline) { job.offline = false; status('Back online — resumed where it left off.'); } return r; }
+      try { const r = await fn(); if (job?.offline) { job.offline = false; status('Back online. Resumed where it left off.'); } return r; }
       catch (e) {
         if (!job || job.cancelled) throw e;
         if (e instanceof ApiError && e.status < 500 && e.status !== 429) throw e;
-        job.offline = true; status('Connection lost — trying again…', 'warn');
+        job.offline = true; status('Connection lost. trying again…', 'warn');
         await sleep(wait);
       }
     }
@@ -828,12 +828,12 @@ function initSend() {
       const end = Math.min(offset + CHUNK, f.size);
       try {
         const r = await put(url, f, offset, end);
-        if (job?.offline) { job.offline = false; status('Back online — resumed where it left off.'); }
+        if (job?.offline) { job.offline = false; status('Back online. Resumed where it left off.'); }
         offset = r.done ? f.size : r.next;
       } catch (e) {
         if (!job || job.cancelled) return;
         if (e.fatal) throw e;
-        job.offline = true; status('Connection lost — waiting to resume…', 'warn');
+        job.offline = true; status('Connection lost. waiting to resume…', 'warn');
         // ask Google how much it has, then carry on from there
         for (let wait = 1000; ; wait = Math.min(wait * 2, 30000)) {
           await sleep(wait);
@@ -857,7 +857,7 @@ function initSend() {
         job?.xhrs.delete(x);
         if (x.status === 200 || x.status === 201) return ok({ done: true });
         if (x.status === 308) return ok({ next: end });   // chunk accepted (Google hides the Range header from browsers)
-        const err = new Error(x.status === 404 || x.status === 410 ? 'The upload expired — please start the send again.' : 'Upload failed (' + x.status + ')');
+        const err = new Error(x.status === 404 || x.status === 410 ? 'The upload expired. Please start the send again.' : 'Upload failed (' + x.status + ')');
         err.fatal = x.status === 404 || x.status === 410 || (x.status >= 400 && x.status < 500 && x.status !== 408 && x.status !== 429);
         no(err);
       };
@@ -875,8 +875,8 @@ function initSend() {
     $('#sent').textContent = fmt(sent);
     job.hist.push([now, sent]); while (job.hist.length > 1 && now - job.hist[0][0] > 4000) job.hist.shift();
     const [t0, s0] = job.hist[0], bps = now > t0 ? (sent - s0) / ((now - t0) / 1000) : 0;
-    $('#speed').textContent = job.paused ? 'Paused' : job.offline ? 'Offline' : bps > 0 ? fmt(bps) + '/s' : '—';
-    $('#eta').textContent = bps > 0 && !job.paused && !job.offline ? fmtTime((job.total - sent) / bps) : '—';
+    $('#speed').textContent = job.paused ? 'Paused' : job.offline ? 'Offline' : bps > 0 ? fmt(bps) + '/s' : '-';
+    $('#eta').textContent = bps > 0 && !job.paused && !job.offline ? fmtTime((job.total - sent) / bps) : '-';
     files.forEach(f => {
       if (!f.el) return;
       const q = f.size ? Math.min(1, f.sent / f.size) : f.done ? 1 : 0;
@@ -948,7 +948,7 @@ function initSend() {
       renderInbox();
     });
   });
-  const crewName = id => CREW.find(c => c.id === id)?.name || id || '—';
+  const crewName = id => CREW.find(c => c.id === id)?.name || id || '-';
   async function renderInbox() {
     if (LIVE) {
       if (!me) return;
@@ -962,7 +962,7 @@ function initSend() {
     $('#in-rows').innerHTML = inRows.map((r, i) => `<tr class="in-row" data-i="${i}" tabindex="0" aria-expanded="false">
         <td><span class="who-from">${esc(r.from || r.title)}${r.email ? `<small>${esc(r.email)}</small>` : ''}</span></td>
         <td class="m hide-s">${fmtDate(r.sent)}</td>
-        <td class="m hide-s">${r.n ? `${r.n} · ${fmt(r.bytes)}` : '—'}</td>
+        <td class="m hide-s">${r.n ? `${r.n} · ${fmt(r.bytes)}` : '-'}</td>
         <td>${esc(crewName(r.to))}${r.done ? '' : ' <span class="tag">Incomplete</span>'}</td>
         <td class="chev" aria-hidden="true">+</td></tr>`).join('');
   }
@@ -989,11 +989,11 @@ function initSend() {
       <ul class="list">${files.map(f => `<li><span class="f-name">${splitPath(f[1])}</span><span class="f-size">${fmt(f[2])}</span>${LIVE
         ? `<a class="btn ghost get" href="${href(f)}" download>Download</a>` : `<button type="button" class="btn ghost get">Download</button>`}</li>`).join('')}</ul>`;
     row.querySelector('.in-all').onclick = async () => {
-      if (!LIVE) return toast('Preview — the download starts here on the live page');
+      if (!LIVE) return toast('Preview: the download starts here on the live page');
       toast(`Downloading ${files.length} files…`);
       for (const f of files) { const a = document.createElement('a'); a.href = href(f); a.download = ''; document.body.append(a); a.click(); a.remove(); await sleep(900); }
     };
-    if (!LIVE) row.querySelectorAll('.get').forEach(b => b.onclick = () => toast('Preview — the download starts here on the live page'));
+    if (!LIVE) row.querySelectorAll('.get').forEach(b => b.onclick = () => toast('Preview: the download starts here on the live page'));
   }
   $('#in-rows').addEventListener('click', e => { const tr = e.target.closest('tr.in-row'); if (tr && !e.target.closest('a,button')) toggleIncoming(tr); });
   $('#in-rows').addEventListener('keydown', e => { const tr = e.target.closest('tr.in-row'); if (tr && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); toggleIncoming(tr); } });
@@ -1016,7 +1016,7 @@ function initSend() {
     $('#hist-empty').hidden = !!rows.length;
     $('#hist').innerHTML = rows.map(d => {
       const gone = d.expires < Date.now();
-      return `<tr><td>${gone ? esc(d.title) : `<a href="?d=${encodeURIComponent(d.id)}" target="_blank">${esc(d.title)}</a>`}</td><td class="m hide-s">${fmtDate(d.sent)}</td><td class="m hide-s">${d.n ? fmt(d.bytes) : '—'}</td>
+      return `<tr><td>${gone ? esc(d.title) : `<a href="?d=${encodeURIComponent(d.id)}" target="_blank">${esc(d.title)}</a>`}</td><td class="m hide-s">${fmtDate(d.sent)}</td><td class="m hide-s">${d.n ? fmt(d.bytes) : '-'}</td>
         <td class="m">${gone ? '<span class="tag old">Expired</span>' : fmtDate(d.expires)}</td>
         <td>${d.downloaded ? '<span class="tag yes">Yes</span>' : '<span class="tag">Not yet</span>'}</td></tr>`;
     }).join('');

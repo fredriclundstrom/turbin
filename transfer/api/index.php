@@ -72,7 +72,7 @@ function login_password(): never {
   $pw = (string)(body()['password'] ?? ''); $m = crew(str_in(body(), 'who', 40));
   $rl = 'rl-login-' . md5(client_ip()) . '.json';
   $tries = array_values(array_filter(read_json($rl) ?? [], fn($t) => $t > time() - 900));
-  if (count($tries) >= 8) fail('Too many attempts — try again in 15 minutes', 429);
+  if (count($tries) >= 8) fail('Too many attempts. Try again in 15 minutes', 429);
   if (!cfg('crew_password') || !hash_equals((string)cfg('crew_password'), $pw)) {
     with_json($rl, fn() => [[...$tries, time()], null]);
     fail('Wrong password', 401);
@@ -96,7 +96,7 @@ function file_list(): array {
     $total += $size;
     $out[] = [implode('/', array_slice($parts, 0, 12)), $size, mb_substr((string)($f['type'] ?? ''), 0, 100)];
   }
-  if ($total > cfg('max_send_bytes')) fail('That’s more than ' . fmt_bytes(cfg('max_send_bytes')) . ' in one send — please split it up');
+  if ($total > cfg('max_send_bytes')) fail('That’s more than ' . fmt_bytes(cfg('max_send_bytes')) . ' in one send. Please split it up');
   return [$out, $total];
 }
 function new_job(array $job): string {
@@ -127,11 +127,11 @@ function a_start(): never {
     if (count($d) >= cfg('sends_per_hour')) return [$d, false];
     $d[] = time(); return [$d, true];
   });
-  if (!$ok) fail('Too many sends from your network right now — please try again in a while', 429);
+  if (!$ok) fail('Too many sends from your network right now. Please try again in a while', 429);
   if (cfg('turnstile_secret')) {
     $r = http('POST', 'https://challenges.cloudflare.com/turnstile/v0/siteverify', ['Content-Type: application/x-www-form-urlencoded'],
       http_build_query(['secret' => cfg('turnstile_secret'), 'response' => str_in($b, 'turnstile', 4000), 'remoteip' => client_ip()]));
-    if (!(json_decode($r['body'], true)['success'] ?? false)) fail('The bot check failed — please reload the page and try again', 403);
+    if (!(json_decode($r['body'], true)['success'] ?? false)) fail('The bot check failed. Please reload the page and try again', 403);
   }
 
   [$files, $total] = file_list();
@@ -192,7 +192,7 @@ function a_status(): never {
   $r = http('PUT', $url, ['Content-Range: bytes */' . $job['files'][$i][1], 'Content-Length: 0'], '');
   if ($r['code'] === 200 || $r['code'] === 201) out(['done' => true]);
   if ($r['code'] === 308) out(['next' => preg_match('/bytes=0-(\d+)/', $r['headers']['range'] ?? '', $m) ? (int)$m[1] + 1 : 0]);
-  fail('The upload expired — please start the send again', 410);
+  fail('The upload expired. Please start the send again', 410);
 }
 
 function a_finish(): never {
@@ -206,7 +206,7 @@ function a_finish(): never {
   if ($job['type'] === 'in') {
     $to = crew($job['to']);
     if ($first) {
-      drive('PATCH', '/files/' . $job['folder'], [], ['appProperties' => ['done' => '1']]);   // complete — shows as such in the crew inbox
+      drive('PATCH', '/files/' . $job['folder'], [], ['appProperties' => ['done' => '1']]);   // complete, so the crew inbox shows it as such in the crew inbox
       send_mail($to['email'], "Files from {$job['name']}" . ($job['company'] ? " ({$job['company']})" : '') . " – $n files, $size",
         "{$job['name']} <{$job['email']}>" . ($job['company'] ? ", {$job['company']}" : '') . " sent you $n files ($size)"
         . ($job['project'] ? " for “{$job['project']}”" : '') . ".\n\n" . ($job['message'] ? "Message:\n{$job['message']}\n\n" : '')
